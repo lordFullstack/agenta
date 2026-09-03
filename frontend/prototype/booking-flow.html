@@ -1,0 +1,862 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Barbería — Reservar cita</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,500;12..96,600;12..96,700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          ink:   { DEFAULT: '#14161A' },
+          bone:  { DEFAULT: '#EDE9E2', 90: '#E4DFD5' },
+          steel: { DEFAULT: '#5B6169' },
+          brass: { DEFAULT: '#A9843C', light: '#C9A15E', dark: '#8A6B2E' },
+          ember: { DEFAULT: '#B5502E' },
+          moss:  { DEFAULT: '#5C7A5E' },
+        },
+        fontFamily: {
+          display: ['"Bricolage Grotesque"', 'sans-serif'],
+          body: ['Inter', 'sans-serif'],
+          mono: ['"JetBrains Mono"', 'monospace'],
+        },
+        borderRadius: { razor: '2px', card: '16px', sheet: '24px', pill: '999px' },
+        boxShadow: {
+          card: '0 4px 16px -4px rgba(20,22,26,0.35)',
+          float: '0 8px 28px -6px rgba(20,22,26,0.5)',
+          brass: '0 0 0 3px rgba(169,132,60,0.35)',
+        },
+        spacing: { '18': '4.5rem', '22': '5.5rem' },
+      },
+    },
+  };
+</script>
+
+<style>
+  /* ── Base ── */
+  html, body { background: #14161A; }
+  body { -webkit-tap-highlight-color: transparent; }
+
+  /* ── Glassmorphism (borde brass a baja opacidad, nunca blanco) ── */
+  .glass-panel {
+    background: rgba(20, 22, 26, 0.72);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    backdrop-filter: blur(20px) saturate(140%);
+    border-color: rgba(169, 132, 60, 0.18);
+  }
+
+  /* ── Safe area (notch / home indicator) ── */
+  .pb-safe { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
+  .pt-safe { padding-top: env(safe-area-inset-top); }
+
+  /* ── Skeleton shimmer ── */
+  .skeleton {
+    background: linear-gradient(100deg, rgba(91,97,105,0.10) 30%, rgba(91,97,105,0.22) 45%, rgba(91,97,105,0.10) 60%);
+    background-size: 200% 100%;
+    animation: shimmer 1.6s ease-in-out infinite;
+  }
+  @keyframes shimmer { 0% { background-position: 150% 0; } 100% { background-position: -50% 0; } }
+
+  /* ── Bottom sheet entrance ── */
+  .sheet-enter { animation: sheet-up 320ms cubic-bezier(0.32,0.72,0,1); }
+  @keyframes sheet-up { from { transform: translateY(100%); } to { transform: translateY(0); } }
+
+  /* ── Confirmation check draw ── */
+  .check-draw path {
+    stroke-dasharray: 40;
+    stroke-dashoffset: 40;
+    animation: draw 500ms ease-out forwards 150ms;
+  }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+
+  /* ── Brass tick (signature element) pulse on active nav ── */
+  .brass-tick { transition: opacity 150ms ease, transform 150ms ease; }
+
+  /* ── Accessible, visible focus ring everywhere — never remove outline without replacement ── */
+  :focus-visible {
+    outline: 2px solid #C9A15E;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* ── Screen visibility ── */
+  [data-screen] { display: none; }
+  [data-screen].screen-active { display: block; }
+
+  /* ── Respect reduced motion ── */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  /* ── Visually hidden but accessible to screen readers ── */
+  .sr-only-focusable:not(:focus) {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
+
+  ::selection { background: rgba(169,132,60,0.35); }
+</style>
+</head>
+
+<body class="bg-ink text-bone font-body antialiased">
+
+<!-- Skip link — primer elemento tabeable, WCAG 2.4.1 -->
+<a href="#main-content" class="sr-only-focusable fixed top-2 left-2 z-[100] bg-brass text-ink px-4 py-2 rounded-card font-semibold">
+  Saltar al contenido principal
+</a>
+
+<!-- Región viva: anuncia cambios de pantalla a lectores de pantalla sin interrumpir visualmente -->
+<div id="live-region" class="sr-only-focusable" aria-live="polite" role="status"></div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BARRA DE VISTA PREVIA (solo para revisión de diseño — no es parte del chrome real de la app)
+     ═══════════════════════════════════════════════════════════ -->
+<div class="sticky top-0 z-[90] glass-panel border-b overflow-x-auto no-scrollbar">
+  <div class="flex gap-1 px-3 py-2 min-w-max" role="toolbar" aria-label="Vista previa de pantallas (herramienta de revisión, no parte de la app)">
+    <button data-jump="home" class="preview-btn">1 Home</button>
+    <button data-jump="buscar" class="preview-btn">2 Buscar</button>
+    <button data-jump="barberia" class="preview-btn">3 Barbería</button>
+    <button data-jump="servicios" class="preview-btn">4 Servicios</button>
+    <button data-jump="barberos" class="preview-btn">5 Barberos</button>
+    <button data-jump="calendario" class="preview-btn">6-7 Calendario/Horarios</button>
+    <button data-jump="mis-citas" class="preview-btn">10 Mis citas</button>
+    <button data-jump="detalle-cita" class="preview-btn">11 Detalle</button>
+    <button data-jump="reprogramar" class="preview-btn">12 Reprogramar</button>
+    <button data-jump="perfil" class="preview-btn">14 Perfil</button>
+  </div>
+</div>
+<style>.preview-btn{ font-size:11px; font-family: 'JetBrains Mono', monospace; color:#5B6169; padding:4px 10px; border:1px solid rgba(91,97,105,.3); border-radius:999px; white-space:nowrap; } .preview-btn:hover{ color:#EDE9E2; border-color:rgba(169,132,60,.4);} .no-scrollbar::-webkit-scrollbar{display:none}</style>
+
+<main id="main-content" class="relative pb-24 lg:pl-24">
+
+<!-- ═══════════════════════════════════════════════════════════
+     1. HOME — Bento grid
+     ═══════════════════════════════════════════════════════════ -->
+<section data-screen="home" class="screen-active px-4 pt-6 max-w-2xl mx-auto lg:max-w-5xl">
+  <h1 class="sr-only">Inicio</h1>
+  <div class="flex items-center justify-between mb-5">
+    <div>
+      <p class="text-steel text-sm">Hola,</p>
+      <p class="font-display text-2xl font-semibold">Mariano</p>
+    </div>
+    <button aria-label="Notificaciones" class="w-11 h-11 rounded-pill bg-bone/5 border border-steel/20 flex items-center justify-center active:scale-95 transition-transform">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+    </button>
+  </div>
+
+  <!-- Bento grid -->
+  <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <!-- Próxima cita: bloque grande, ocupa toda la fila -->
+    <button data-nav="mis-citas" class="col-span-2 lg:col-span-2 bg-bone text-ink rounded-card shadow-card p-4 text-left active:scale-[0.98] transition-transform">
+      <p class="text-xs uppercase tracking-wide text-steel font-medium mb-1">Tu próxima cita</p>
+      <p class="font-display text-lg font-semibold">Corte + Barba</p>
+      <p class="text-steel text-sm font-mono">Mañana · 15:30 con Diego</p>
+      <span class="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-pill text-xs font-medium bg-brass/15 text-brass">Confirmada</span>
+    </button>
+
+    <!-- Buscar barbería -->
+    <button data-nav="buscar" class="col-span-2 lg:col-span-2 bg-brass text-ink rounded-card shadow-card p-4 text-left active:scale-[0.98] transition-transform flex items-center justify-between">
+      <div>
+        <p class="font-display text-lg font-semibold">Reservar turno</p>
+        <p class="text-ink/70 text-sm">Encontrá tu barbería en segundos</p>
+      </div>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </button>
+
+    <!-- Favoritos -->
+    <div class="col-span-2 bg-bone/5 border border-steel/15 rounded-card p-4">
+      <p class="text-xs uppercase tracking-wide text-steel font-medium mb-3">Tus barberías</p>
+      <div class="flex gap-3">
+        <button data-nav="barberia" class="flex flex-col items-center gap-1.5 active:scale-95 transition-transform" aria-label="Ir a Barbería El Corte">
+          <span class="w-14 h-14 rounded-pill bg-gradient-to-br from-brass to-brass-dark flex items-center justify-center font-display font-semibold text-ink">EC</span>
+          <span class="text-xs text-steel">El Corte</span>
+        </button>
+        <button data-nav="buscar" class="flex flex-col items-center gap-1.5 justify-center active:scale-95 transition-transform" aria-label="Buscar más barberías">
+          <span class="w-14 h-14 rounded-pill border border-dashed border-steel/40 flex items-center justify-center text-steel">+</span>
+          <span class="text-xs text-steel">Más</span>
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     2. BUSCAR BARBERÍA
+     ═══════════════════════════════════════════════════════════ -->
+<section data-screen="buscar" class="px-4 pt-4 max-w-2xl mx-auto lg:max-w-3xl">
+  <div class="flex items-center gap-3 mb-4">
+    <button data-nav="home" aria-label="Volver a Inicio" class="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </button>
+    <h1 class="font-display text-xl font-semibold">Buscar barbería</h1>
+  </div>
+
+  <label for="search-input" class="sr-only">Buscar barbería por nombre o zona</label>
+  <div class="relative mb-3">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="absolute left-3 top-1/2 -translate-y-1/2 text-steel" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <input id="search-input" type="search" placeholder="Nombre o zona" class="w-full bg-bone/5 border border-steel/25 rounded-card pl-10 pr-4 py-3 text-bone placeholder:text-steel/60 focus:border-brass outline-none" />
+  </div>
+
+  <div class="flex gap-2 mb-5 overflow-x-auto no-scrollbar" role="group" aria-label="Filtros rápidos">
+    <button class="px-3 py-1.5 rounded-pill text-xs font-medium bg-brass text-ink whitespace-nowrap">Cerca de mí</button>
+    <button class="px-3 py-1.5 rounded-pill text-xs font-medium border border-steel/30 text-bone whitespace-nowrap">Disponible hoy</button>
+    <button class="px-3 py-1.5 rounded-pill text-xs font-medium border border-steel/30 text-bone whitespace-nowrap">Mejor calificados</button>
+  </div>
+
+  <!-- Toggle de estados de demo -->
+  <div class="flex gap-2 mb-4 text-xs" role="group" aria-label="Demostración de estados (solo revisión)">
+    <button data-demo="buscar:loading" class="demo-btn">Loading</button>
+    <button data-demo="buscar:empty" class="demo-btn">Empty</button>
+    <button data-demo="buscar:error" class="demo-btn">Error</button>
+    <button data-demo="buscar:success" class="demo-btn">Success</button>
+  </div>
+
+  <div id="buscar-results">
+    <!-- contenido inyectado por JS según estado -->
+  </div>
+</section>
+<style>.demo-btn{ font-family:'JetBrains Mono',monospace; color:#5B6169; border:1px solid rgba(91,97,105,.3); padding:3px 10px; border-radius:999px;} .demo-btn:hover{color:#EDE9E2;border-color:rgba(169,132,60,.5)}</style>
+
+<!-- ═══════════════════════════════════════════════════════════
+     3. BARBERÍA (perfil público) — Bento grid + CTA sticky
+     ═══════════════════════════════════════════════════════════ -->
+<section data-screen="barberia" class="max-w-2xl mx-auto lg:max-w-3xl">
+  <div class="relative h-40 bg-gradient-to-br from-brass via-brass-dark to-ink">
+    <button data-nav="buscar" aria-label="Volver a búsqueda" class="absolute top-4 left-4 w-10 h-10 rounded-pill bg-ink/50 backdrop-blur flex items-center justify-center active:scale-90 transition-transform">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#EDE9E2" stroke-width="2" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </button>
+    <button aria-label="Compartir barbería" class="absolute top-4 right-4 w-10 h-10 rounded-pill bg-ink/50 backdrop-blur flex items-center justify-center active:scale-90 transition-transform">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#EDE9E2" stroke-width="2" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5 15.4 17.5M15.4 6.5 8.6 10.5"/></svg>
+    </button>
+  </div>
+
+  <div class="px-4 -mt-8 relative">
+    <div class="w-16 h-16 rounded-card bg-ink border-4 border-ink shadow-float flex items-center justify-center font-display font-semibold text-brass text-xl">EC</div>
+
+    <h1 class="font-display text-2xl font-semibold mt-3">Barbería El Corte</h1>
+    <p class="text-steel text-sm mb-4">Av. Corrientes 1234, CABA · 4.8 ★ (212 reseñas)</p>
+
+    <div class="grid grid-cols-2 gap-3 mb-6 lg:grid-cols-4">
+      <div class="bg-bone/5 border border-steel/15 rounded-card p-3">
+        <p class="text-xs text-steel mb-0.5">Hoy</p>
+        <p class="text-sm font-medium">09:00 – 20:00</p>
+      </div>
+      <div class="bg-bone/5 border border-steel/15 rounded-card p-3">
+        <p class="text-xs text-steel mb-0.5">Próximo turno</p>
+        <p class="text-sm font-medium font-mono">Hoy 15:30</p>
+      </div>
+    </div>
+
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-steel mb-2">Servicios destacados</h2>
+    <div class="space-y-2 mb-6">
+      <div class="flex justify-between bg-bone/5 border border-steel/15 rounded-card p-3">
+        <span>Corte clásico</span><span class="font-mono text-brass">$2500</span>
+      </div>
+      <div class="flex justify-between bg-bone/5 border border-steel/15 rounded-card p-3">
+        <span>Corte + Barba</span><span class="font-mono text-brass">$3800</span>
+      </div>
+    </div>
+
+    <h2 class="text-sm font-semibold uppercase tracking-wide text-steel mb-2">Barberos</h2>
+    <div class="flex gap-3 pb-28">
+      <div class="flex flex-col items-center gap-1.5">
+        <span class="w-14 h-14 rounded-pill bg-gradient-to-br from-steel to-ink flex items-center justify-center font-display text-bone">D</span>
+        <span class="text-xs text-steel">Diego</span>
+      </div>
+      <div class="flex flex-col items-center gap-1.5">
+        <span class="w-14 h-14 rounded-pill bg-gradient-to-br from-steel to-ink flex items-center justify-center font-display text-bone">L</span>
+        <span class="text-xs text-steel">Lucas</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- CTA sticky en thumb zone -->
+  <div class="fixed inset-x-0 bottom-0 lg:left-24 glass-panel border-t p-4 pb-safe z-40">
+    <button data-nav="servicios" class="w-full bg-brass text-ink font-display font-semibold text-lg rounded-full py-4 active:scale-95 transition-transform shadow-card">
+      Reservar cita
+    </button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     4. SERVICIOS
+     ═══════════════════════════════════════════════════════════ -->
+<section data-screen="servicios" class="px-4 pt-4 pb-32 max-w-2xl mx-auto lg:max-w-3xl">
+  <div class="flex items-center gap-3 mb-5">
+    <button data-nav="barberia" aria-label="Volver" class="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </button>
+    <h1 class="font-display text-xl font-semibold">Elegí tu servicio</h1>
+  </div>
+
+  <fieldset class="space-y-2">
+    <legend class="sr-only">Servicios disponibles — podés elegir más de uno</legend>
+    <label class="service-option">
+      <input type="checkbox" class="service-checkbox" data-price="2500" data-name="Corte clásico" />
+      <span class="flex-1">
+        <span class="block font-medium">Corte clásico</span>
+        <span class="block text-steel text-xs font-mono">30 min</span>
+      </span>
+      <span class="font-mono">$2500</span>
+    </label>
+    <label class="service-option">
+      <input type="checkbox" class="service-checkbox" data-price="1500" data-name="Barba" />
+      <span class="flex-1">
+        <span class="block font-medium">Arreglo de barba</span>
+        <span class="block text-steel text-xs font-mono">15 min</span>
+      </span>
+      <span class="font-mono">$1500</span>
+    </label>
+    <label class="service-option">
+      <input type="checkbox" class="service-checkbox" data-price="900" data-name="Cejas" />
+      <span class="flex-1">
+        <span class="block font-medium">Perfilado de cejas</span>
+        <span class="block text-steel text-xs font-mono">10 min</span>
+      </span>
+      <span class="font-mono">$900</span>
+    </label>
+  </fieldset>
+
+  <div class="fixed inset-x-0 bottom-0 lg:left-24 glass-panel border-t p-4 pb-safe z-40">
+    <p id="services-summary" class="text-xs text-steel font-mono mb-2 h-4" aria-live="polite"></p>
+    <button id="services-continue" data-nav="barberos" disabled class="w-full bg-brass text-ink font-semibold rounded-full py-4 disabled:opacity-40 disabled:pointer-events-none active:scale-95 transition-all">
+      Continuar
+    </button>
+  </div>
+</section>
+<style>
+  .service-option { display:flex; align-items:center; gap:.75rem; background:#EDE9E2; color:#14161A; border-radius:16px; padding:1rem; cursor:pointer; box-shadow: 0 4px 16px -4px rgba(20,22,26,.35); }
+  .service-option:has(.service-checkbox:checked) { outline: 2px solid #A9843C; outline-offset: -2px; }
+  .service-checkbox { width:22px; height:22px; accent-color:#A9843C; }
+</style>
+
+<!-- ═══════════════════════════════════════════════════════════
+     5. BARBEROS
+     ═══════════════════════════════════════════════════════════ -->
+<section data-screen="barberos" class="px-4 pt-4 max-w-2xl mx-auto lg:max-w-3xl">
+  <div class="flex items-center gap-3 mb-5">
+    <button data-nav="servicios" aria-label="Volver" class="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </button>
+    <h1 class="font-display text-xl font-semibold">Elegí tu barbero</h1>
+  </div>
+
+  <button data-nav="calendario" class="w-full flex items-center justify-between bg-brass text-ink rounded-card shadow-card p-4 mb-3 active:scale-[0.98] transition-transform">
+    <div class="text-left">
+      <p class="font-semibold">Cualquiera disponible</p>
+      <p class="text-ink/70 text-xs">La opción más rápida</p>
+    </div>
+    <span class="text-xs bg-ink text-brass px-2 py-1 rounded-pill font-medium">Recomendado</span>
+  </button>
+
+  <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <button data-nav="calendario" class="bg-bone text-ink rounded-card shadow-card p-3 text-left active:scale-[0.98] transition-transform">
+      <span class="w-14 h-14 rounded-pill bg-gradient-to-br from-steel to-ink flex items-center justify-center font-display text-bone mb-2 block">D</span>
+      <p class="font-medium">Diego</p>
+      <p class="text-steel text-xs font-mono">Libre hoy 16:00</p>
+    </button>
+    <button data-nav="calendario" class="bg-bone text-ink rounded-card shadow-card p-3 text-left active:scale-[0.98] transition-transform">
+      <span class="w-14 h-14 rounded-pill bg-gradient-to-br from-steel to-ink flex items-center justify-center font-display text-bone mb-2 block">L</span>
+      <p class="font-medium">Lucas</p>
+      <p class="text-steel text-xs font-mono">Libre mañana 10:00</p>
+    </button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     6-7. CALENDARIO + HORARIOS
+     Se fusionan en una sola pantalla continua a propósito: elegir el día
+     revela los horarios inmediatamente debajo, sin cambiar de pantalla —
+     esto es lo que sostiene la reserva en el menor número de pasos posible.
+     ═══════════════════════════════════════════════════════════ -->
+<section data-screen="calendario" class="px-4 pt-4 pb-10 max-w-2xl mx-auto lg:max-w-3xl">
+  <div class="flex items-center gap-3 mb-5">
+    <button data-nav="barberos" aria-label="Volver" class="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </button>
+    <h1 class="font-display text-xl font-semibold">Elegí día y horario</h1>
+  </div>
+
+  <div class="flex gap-2 overflow-x-auto snap-x pb-2 -mx-4 px-4 mb-6" role="radiogroup" aria-label="Elegir día">
+    <!-- generado también vía JS, pero con fallback estático para no depender de JS -->
+    <button class="day-btn" data-day="Hoy" aria-checked="true" role="radio"><span class="block text-xs font-mono uppercase text-steel">Mié</span><span class="block text-lg font-display font-semibold">26</span></button>
+    <button class="day-btn" data-day="Jue" aria-checked="false" role="radio"><span class="block text-xs font-mono uppercase text-steel">Jue</span><span class="block text-lg font-display font-semibold">27</span></button>
+    <button class="day-btn" data-day="Vie" aria-checked="false" role="radio"><span class="block text-xs font-mono uppercase text-steel">Vie</span><span class="block text-lg font-display font-semibold">28</span></button>
+    <button class="day-btn" data-day="Sab" aria-checked="false" role="radio"><span class="block text-xs font-mono uppercase text-steel">Sáb</span><span class="block text-lg font-display font-semibold">29</span></button>
+    <button class="day-btn opacity-30 pointer-events-none" data-day="Dom" aria-checked="false" role="radio" aria-disabled="true"><span class="block text-xs font-mono uppercase text-steel">Dom</span><span class="block text-lg font-display font-semibold">30</span></button>
+  </div>
+
+  <h2 class="text-sm font-semibold uppercase tracking-wide text-steel mb-3">Mañana</h2>
+  <div class="grid grid-cols-3 gap-2.5 mb-5" role="radiogroup" aria-label="Horarios de la mañana">
+    <button class="slot-btn" role="radio" aria-checked="false">09:00</button>
+    <button class="slot-btn" role="radio" aria-checked="false">09:30</button>
+    <button class="slot-btn opacity-30 pointer-events-none" role="radio" aria-checked="false" aria-disabled="true">10:00</button>
+    <button class="slot-btn" role="radio" aria-checked="false">10:30</button>
+    <button class="slot-btn" role="radio" aria-checked="false">11:00</button>
+    <button class="slot-btn" role="radio" aria-checked="false">11:30</button>
+  </div>
+
+  <h2 class="text-sm font-semibold uppercase tracking-wide text-steel mb-3">Tarde</h2>
+  <div class="grid grid-cols-3 gap-2.5" role="radiogroup" aria-label="Horarios de la tarde">
+    <button class="slot-btn" role="radio" aria-checked="false">15:00</button>
+    <button class="slot-btn" role="radio" aria-checked="true" data-open-sheet="confirmacion">15:30</button>
+    <button class="slot-btn" role="radio" aria-checked="false">16:00</button>
+    <button class="slot-btn opacity-30 pointer-events-none" role="radio" aria-disabled="true">16:30</button>
+    <button class="slot-btn" role="radio" aria-checked="false">17:00</button>
+    <button class="slot-btn" role="radio" aria-checked="false">17:30</button>
+  </div>
+</section>
+<style>
+  .day-btn { flex-shrink:0; scroll-snap-align:start; width:3.5rem; height:4.5rem; border-radius:16px; display:flex; flex-direction:column; align-items:center; justify-content:center; background:rgba(237,233,226,.05); border:1px solid rgba(91,97,105,.25); }
+  .day-btn[aria-checked="true"] { background:#A9843C; border-color:#A9843C; }
+  .day-btn[aria-checked="true"] span { color:#14161A !important; }
+  .slot-btn { padding:.75rem 0; border-radius:8px; font-family:'JetBrains Mono',monospace; font-size:.875rem; border:1px solid rgba(91,97,105,.25); color:#EDE9E2; }
+  .slot-btn[aria-checked="true"] { background:#A9843C; color:#14161A; border-color:#A9843C; box-shadow:0 0 0 3px rgba(169,132,60,.35); }
+</style>
+
+<!-- ═══════════════════════════════════════════════════════════
+     10. MIS CITAS — con FAB
+     ═══════════════════════════════════════════════════════════ -->
+<section data-screen="mis-citas" class="px-4 pt-6 pb-28 max-w-2xl mx-auto lg:max-w-3xl">
+  <h1 class="font-display text-2xl font-semibold mb-5">Mis citas</h1>
+
+  <div class="flex gap-2 mb-4" role="tablist" aria-label="Ver citas próximas o historial">
+    <button role="tab" aria-selected="true" class="px-4 py-2 rounded-pill text-sm font-medium bg-brass text-ink">Próximas</button>
+    <button role="tab" aria-selected="false" class="px-4 py-2 rounded-pill text-sm font-medium border border-steel/30 text-bone">Historial</button>
+  </div>
+
+  <button data-nav="detalle-cita" class="w-full bg-bone text-ink rounded-card shadow-card p-4 border-l-4 border-brass text-left active:scale-[0.98] transition-transform mb-3">
+    <p class="text-xs text-steel mb-1">Mañana</p>
+    <p class="font-display text-lg font-semibold">Corte + Barba</p>
+    <p class="text-steel text-sm font-mono">15:30 · Diego · Barbería El Corte</p>
+    <span class="inline-flex items-center gap-1.5 mt-2 px-2.5 py-1 rounded-pill text-xs font-medium bg-brass/15 text-brass">Confirmada</span>
+  </button>
+
+  <!-- FAB: acción más frecuente de esta pantalla — iniciar una reserva nueva -->
+  <button data-nav="buscar" aria-label="Reservar nueva cita" class="fixed bottom-24 right-4 lg:right-8 w-14 h-14 rounded-pill bg-brass text-ink shadow-float flex items-center justify-center active:scale-90 transition-transform z-40">
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+  </button>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     11. DETALLE DE CITA
+     ═══════════════════════════════════════════════════════════ -->
+<section data-screen="detalle-cita" class="px-4 pt-4 pb-10 max-w-2xl mx-auto lg:max-w-3xl">
+  <div class="flex items-center gap-3 mb-5">
+    <button data-nav="mis-citas" aria-label="Volver" class="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </button>
+    <h1 class="font-display text-xl font-semibold">Detalle de la cita</h1>
+  </div>
+
+  <div class="bg-bone text-ink rounded-card shadow-card p-5 mb-5">
+    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill text-xs font-medium bg-brass/15 text-brass mb-3">Confirmada</span>
+    <p class="font-display text-xl font-semibold mb-1">Corte + Barba</p>
+    <p class="text-steel text-sm font-mono mb-4">Mañana · 15:30 – 16:00</p>
+    <dl class="space-y-2 text-sm">
+      <div class="flex justify-between"><dt class="text-steel">Barbero</dt><dd class="font-medium">Diego</dd></div>
+      <div class="flex justify-between"><dt class="text-steel">Barbería</dt><dd class="font-medium">El Corte</dd></div>
+      <div class="flex justify-between"><dt class="text-steel">Total</dt><dd class="font-mono">$3800</dd></div>
+      <div class="flex justify-between"><dt class="text-steel">Código</dt><dd class="font-mono text-brass tracking-wide">7K2Q9M</dd></div>
+    </dl>
+  </div>
+
+  <div class="grid grid-cols-2 gap-3">
+    <button data-nav="reprogramar" class="border border-steel/40 text-bone rounded-full py-3.5 font-medium active:scale-95 transition-transform">Reprogramar</button>
+    <button data-open-sheet="cancelar" class="border border-ember/40 text-ember rounded-full py-3.5 font-medium active:scale-95 transition-transform">Cancelar</button>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     12. REPROGRAMAR (reutiliza el patrón calendario+horarios)
+     ═══════════════════════════════════════════════════════════ -->
+<section data-screen="reprogramar" class="px-4 pt-4 pb-10 max-w-2xl mx-auto lg:max-w-3xl">
+  <div class="flex items-center gap-3 mb-4">
+    <button data-nav="detalle-cita" aria-label="Volver" class="w-10 h-10 flex items-center justify-center active:scale-90 transition-transform">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    </button>
+    <h1 class="font-display text-xl font-semibold">Reprogramar cita</h1>
+  </div>
+
+  <div class="bg-bone/5 border border-steel/20 rounded-card p-3 mb-5 text-sm">
+    <p class="text-steel text-xs mb-0.5">Horario actual</p>
+    <p class="font-mono">Mañana 15:30 con Diego</p>
+  </div>
+
+  <div class="flex gap-2 overflow-x-auto snap-x pb-2 -mx-4 px-4 mb-6" role="radiogroup" aria-label="Elegir nuevo día">
+    <button class="day-btn" aria-checked="false" role="radio"><span class="block text-xs font-mono uppercase text-steel">Jue</span><span class="block text-lg font-display font-semibold">27</span></button>
+    <button class="day-btn" aria-checked="true" role="radio"><span class="block text-xs font-mono uppercase text-steel">Vie</span><span class="block text-lg font-display font-semibold">28</span></button>
+    <button class="day-btn" aria-checked="false" role="radio"><span class="block text-xs font-mono uppercase text-steel">Sáb</span><span class="block text-lg font-display font-semibold">29</span></button>
+  </div>
+
+  <h2 class="text-sm font-semibold uppercase tracking-wide text-steel mb-3">Horarios disponibles</h2>
+  <div class="grid grid-cols-3 gap-2.5 mb-6" role="radiogroup" aria-label="Nuevo horario">
+    <button class="slot-btn" role="radio" aria-checked="false">10:00</button>
+    <button class="slot-btn" role="radio" aria-checked="true">10:30</button>
+    <button class="slot-btn" role="radio" aria-checked="false">11:00</button>
+  </div>
+
+  <button data-open-sheet="confirmar-reprogramacion" class="w-full bg-brass text-ink font-semibold rounded-full py-4 active:scale-95 transition-transform">
+    Confirmar nuevo horario
+  </button>
+</section>
+
+<!-- ═══════════════════════════════════════════════════════════
+     14. PERFIL
+     ═══════════════════════════════════════════════════════════ -->
+<section data-screen="perfil" class="px-4 pt-6 pb-10 max-w-2xl mx-auto lg:max-w-3xl">
+  <h1 class="font-display text-2xl font-semibold mb-6">Perfil</h1>
+
+  <div class="flex items-center gap-3 mb-6">
+    <span class="w-16 h-16 rounded-pill bg-gradient-to-br from-brass to-brass-dark flex items-center justify-center font-display text-xl text-ink">M</span>
+    <div>
+      <p class="font-display text-lg font-semibold">Mariano Pérez</p>
+      <p class="text-steel text-sm">+54 9 11 5555-0000</p>
+    </div>
+  </div>
+
+  <nav aria-label="Opciones de perfil" class="space-y-2">
+    <button class="profile-row"><span>Editar perfil</span><span aria-hidden="true">›</span></button>
+    <button class="profile-row"><span>Notificaciones</span><span aria-hidden="true">›</span></button>
+    <button class="profile-row"><span>Ayuda y soporte</span><span aria-hidden="true">›</span></button>
+    <button class="profile-row text-ember"><span>Cerrar sesión</span></button>
+  </nav>
+</section>
+<style>.profile-row{ width:100%; display:flex; justify-content:space-between; align-items:center; background:rgba(237,233,226,.05); border:1px solid rgba(91,97,105,.15); border-radius:16px; padding:1rem; text-align:left; }</style>
+
+</main>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BOTTOM NAVIGATION (mobile) / RAIL LATERAL (desktop ≥1024px)
+     ═══════════════════════════════════════════════════════════ -->
+<nav aria-label="Navegación principal" class="fixed bottom-0 inset-x-0 lg:inset-y-0 lg:right-auto lg:w-24 lg:flex-col h-18 lg:h-auto glass-panel border-t lg:border-t-0 lg:border-r flex items-center justify-around lg:justify-start lg:pt-8 lg:gap-8 pb-safe z-50">
+  <button data-nav="home" data-tab class="nav-tab" aria-current="page">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M3 10.5 12 3l9 7.5V21a1 1 0 0 1-1 1h-5v-7H9v7H4a1 1 0 0 1-1-1z"/></svg>
+    <span class="brass-tick w-1 h-1 rounded-full bg-brass"></span>
+    <span class="text-[10px] font-medium">Inicio</span>
+  </button>
+  <button data-nav="buscar" data-tab class="nav-tab">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg>
+    <span class="brass-tick w-1 h-1 rounded-full bg-brass opacity-0"></span>
+    <span class="text-[10px] font-medium">Buscar</span>
+  </button>
+  <button data-nav="mis-citas" data-tab class="nav-tab">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>
+    <span class="brass-tick w-1 h-1 rounded-full bg-brass opacity-0"></span>
+    <span class="text-[10px] font-medium">Mis citas</span>
+  </button>
+  <button data-nav="perfil" data-tab class="nav-tab">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4.5 5-6 8-6s6.5 1.5 8 6"/></svg>
+    <span class="brass-tick w-1 h-1 rounded-full bg-brass opacity-0"></span>
+    <span class="text-[10px] font-medium">Perfil</span>
+  </button>
+</nav>
+<style>
+  .nav-tab { display:flex; flex-direction:column; align-items:center; gap:2px; color:#5B6169; padding:.5rem; min-width:44px; min-height:44px; justify-content:center; }
+  .nav-tab[aria-current="page"] { color:#EDE9E2; }
+  .nav-tab[aria-current="page"] .brass-tick { opacity:1; }
+</style>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BOTTOM SHEET: 8. CONFIRMACIÓN
+     ═══════════════════════════════════════════════════════════ -->
+<div id="sheet-confirmacion" class="sheet-overlay" hidden>
+  <div class="sheet-backdrop" data-close-sheet></div>
+  <div class="sheet-panel sheet-enter" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+    <div class="sheet-handle"></div>
+    <div class="px-5 pb-6">
+      <h2 id="confirm-title" class="font-display text-xl font-semibold mb-4">Confirmá tu reserva</h2>
+
+      <div class="space-y-2 text-sm mb-5">
+        <div class="flex justify-between"><span class="text-steel">Barbería</span><span class="font-medium">El Corte</span></div>
+        <div class="flex justify-between"><span class="text-steel">Servicio</span><span class="font-medium">Corte + Barba</span></div>
+        <div class="flex justify-between"><span class="text-steel">Barbero</span><span class="font-medium">Diego</span></div>
+        <div class="flex justify-between"><span class="text-steel">Horario</span><span class="font-medium font-mono">Hoy · 15:30</span></div>
+        <div class="flex justify-between"><span class="text-steel">Total</span><span class="font-mono text-brass">$3800</span></div>
+      </div>
+
+      <label for="note-input" class="block text-xs text-steel mb-1">Nota para el barbero (opcional)</label>
+      <textarea id="note-input" rows="2" class="w-full bg-transparent border-b-2 border-steel/30 focus:border-brass text-ink text-sm py-2 outline-none mb-3 resize-none" placeholder="Ej: prefiero la máquina 2"></textarea>
+
+      <p class="text-steel text-xs mb-5">Cancelación gratuita hasta 2 horas antes del turno.</p>
+
+      <button id="confirm-submit" class="w-full bg-brass text-ink font-semibold rounded-full py-4 active:scale-95 transition-transform flex items-center justify-center gap-2">
+        <span id="confirm-submit-label">Confirmar reserva</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BOTTOM SHEET: 13. CANCELAR
+     ═══════════════════════════════════════════════════════════ -->
+<div id="sheet-cancelar" class="sheet-overlay" hidden>
+  <div class="sheet-backdrop" data-close-sheet></div>
+  <div class="sheet-panel sheet-enter" role="dialog" aria-modal="true" aria-labelledby="cancel-title">
+    <div class="sheet-handle"></div>
+    <div class="px-5 pb-6" id="cancel-sheet-body">
+      <!-- variante normal -->
+      <div id="cancel-normal">
+        <h2 id="cancel-title" class="font-display text-xl font-semibold mb-2">¿Cancelar esta cita?</h2>
+        <p class="text-steel text-sm mb-4">Corte + Barba con Diego, mañana a las 15:30. La cancelación es gratuita porque falta más de 2 horas.</p>
+
+        <label for="cancel-reason" class="block text-xs text-steel mb-1">Motivo (opcional)</label>
+        <select id="cancel-reason" class="w-full bg-bone/5 border border-steel/25 rounded-card px-3 py-2.5 text-bone mb-5 outline-none focus:border-brass">
+          <option value="">Preferí no decirlo</option>
+          <option>No puedo asistir</option>
+          <option>Elegí otro horario</option>
+          <option>Cambié de planes</option>
+        </select>
+
+        <div class="grid grid-cols-2 gap-3">
+          <button data-close-sheet class="border border-steel/40 text-bone rounded-full py-3.5 font-medium active:scale-95 transition-transform">Volver</button>
+          <button id="cancel-confirm-btn" class="bg-ember/15 text-ember border border-ember/30 rounded-full py-3.5 font-medium active:scale-95 transition-transform">Sí, cancelar</button>
+        </div>
+      </div>
+
+      <!-- variante error: fuera de ventana de cancelación (demo) -->
+      <div id="cancel-error" hidden>
+        <h2 class="font-display text-xl font-semibold mb-2">No se puede cancelar sin costo</h2>
+        <p class="text-steel text-sm mb-5">Esta cita empieza en menos de 2 horas. Podés contactar directamente a la barbería si necesitás cancelarla igual.</p>
+        <div class="grid grid-cols-2 gap-3">
+          <button data-close-sheet class="border border-steel/40 text-bone rounded-full py-3.5 font-medium">Volver</button>
+          <button class="bg-brass text-ink rounded-full py-3.5 font-medium">Llamar</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════════════
+     BOTTOM SHEET: confirmar reprogramación
+     ═══════════════════════════════════════════════════════════ -->
+<div id="sheet-confirmar-reprogramacion" class="sheet-overlay" hidden>
+  <div class="sheet-backdrop" data-close-sheet></div>
+  <div class="sheet-panel sheet-enter" role="dialog" aria-modal="true" aria-labelledby="resched-title">
+    <div class="sheet-handle"></div>
+    <div class="px-5 pb-6">
+      <h2 id="resched-title" class="font-display text-xl font-semibold mb-4">Confirmar reprogramación</h2>
+      <div class="space-y-2 text-sm mb-6">
+        <div class="flex justify-between"><span class="text-steel">Antes</span><span class="font-mono line-through text-steel">Mié 26 · 15:30</span></div>
+        <div class="flex justify-between"><span class="text-steel">Ahora</span><span class="font-mono text-brass">Vie 28 · 10:30</span></div>
+      </div>
+      <button id="reschedule-submit" class="w-full bg-brass text-ink font-semibold rounded-full py-4 active:scale-95 transition-transform">
+        Confirmar cambio
+      </button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .sheet-overlay { position:fixed; inset:0; z-index:60; display:flex; align-items:flex-end; }
+  .sheet-overlay[hidden] { display:none; }
+  .sheet-backdrop { position:absolute; inset:0; background:rgba(20,22,26,0.6); -webkit-backdrop-filter:blur(2px); backdrop-filter:blur(2px); }
+  .sheet-panel { position:relative; width:100%; max-width:640px; margin:0 auto; background:#EDE9E2; color:#14161A; border-radius:24px 24px 0 0; box-shadow:0 8px 28px -6px rgba(20,22,26,.5); max-height:85vh; overflow-y:auto; }
+  .sheet-handle { width:36px; height:4px; background:rgba(91,97,105,.3); border-radius:999px; margin:12px auto 16px; }
+</style>
+
+<!-- ═══════════════════════════════════════════════════════════
+     9. RESERVA EXITOSA (pantalla completa, no sheet — es el hito principal)
+     ═══════════════════════════════════════════════════════════ -->
+<section data-screen="exito" class="fixed inset-0 z-[70] flex flex-col items-center justify-center px-6 text-center bg-ink">
+  <div class="w-20 h-20 rounded-pill bg-brass/15 flex items-center justify-center mb-6" aria-hidden="true">
+    <svg class="check-draw" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#A9843C" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12l6 6L20 6"/></svg>
+  </div>
+  <h1 class="font-display text-2xl font-semibold mb-2">¡Cita confirmada!</h1>
+  <p class="text-steel text-sm mb-1">Corte + Barba con Diego</p>
+  <p class="text-steel text-sm mb-6 font-mono">Hoy · 15:30</p>
+  <p class="font-mono text-brass text-2xl tracking-[0.3em] mb-1">7K2Q9M</p>
+  <p class="text-steel text-xs mb-10">Código de confirmación</p>
+
+  <div class="w-full max-w-sm space-y-3">
+    <button class="w-full border border-steel/40 text-bone rounded-full py-3.5 font-medium active:scale-95 transition-transform">Agregar al calendario</button>
+    <button data-nav="mis-citas" data-close-exito class="w-full bg-brass text-ink rounded-full py-3.5 font-semibold active:scale-95 transition-transform">Ver mis citas</button>
+  </div>
+</section>
+
+<script>
+(function () {
+  'use strict';
+
+  var liveRegion = document.getElementById('live-region');
+  var screenLabels = {
+    home: 'Inicio', buscar: 'Buscar barbería', barberia: 'Perfil de la barbería',
+    servicios: 'Elegir servicios', barberos: 'Elegir barbero', calendario: 'Calendario y horarios',
+    'mis-citas': 'Mis citas', 'detalle-cita': 'Detalle de la cita', reprogramar: 'Reprogramar cita',
+    perfil: 'Perfil', exito: 'Reserva confirmada'
+  };
+  var rootScreens = ['home', 'buscar', 'mis-citas', 'perfil'];
+  var lastFocusedBeforeSheet = null;
+
+  function showScreen(name) {
+    document.querySelectorAll('[data-screen]').forEach(function (el) {
+      el.classList.toggle('screen-active', el.dataset.screen === name);
+    });
+    // nav activa
+    document.querySelectorAll('[data-tab]').forEach(function (btn) {
+      var isActive = btn.dataset.nav === name;
+      if (isActive) { btn.setAttribute('aria-current', 'page'); } else { btn.removeAttribute('aria-current'); }
+    });
+    if (liveRegion && screenLabels[name]) {
+      liveRegion.textContent = screenLabels[name];
+    }
+    var heading = document.querySelector('[data-screen="' + name + '"] h1');
+    if (heading) { heading.setAttribute('tabindex', '-1'); heading.focus({ preventScroll: true }); }
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
+
+  document.addEventListener('click', function (e) {
+    var navBtn = e.target.closest('[data-nav]');
+    if (navBtn) { showScreen(navBtn.dataset.nav); return; }
+    var jumpBtn = e.target.closest('[data-jump]');
+    if (jumpBtn) { showScreen(jumpBtn.dataset.jump); return; }
+  });
+
+  // ── Bottom sheets: abrir, cerrar, Escape, foco ──
+  function openSheet(id) {
+    var sheet = document.getElementById('sheet-' + id);
+    if (!sheet) return;
+    lastFocusedBeforeSheet = document.activeElement;
+    sheet.hidden = false;
+    var panel = sheet.querySelector('.sheet-panel');
+    var focusable = panel.querySelector('button, [href], input, select, textarea');
+    if (focusable) focusable.focus();
+    document.body.style.overflow = 'hidden';
+  }
+  function closeSheet(sheet) {
+    sheet.hidden = true;
+    document.body.style.overflow = '';
+    if (lastFocusedBeforeSheet) lastFocusedBeforeSheet.focus();
+  }
+  document.addEventListener('click', function (e) {
+    var openBtn = e.target.closest('[data-open-sheet]');
+    if (openBtn) { openSheet(openBtn.dataset.openSheet); return; }
+    var closeBtn = e.target.closest('[data-close-sheet]');
+    if (closeBtn) { closeSheet(closeBtn.closest('.sheet-overlay')); return; }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    document.querySelectorAll('.sheet-overlay').forEach(function (s) {
+      if (!s.hidden) closeSheet(s);
+    });
+  });
+
+  // ── Flujo: día → horario (thumb-tap directo, sin botón "continuar" extra) ──
+  document.querySelectorAll('.day-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var group = btn.closest('[role="radiogroup"]');
+      group.querySelectorAll('.day-btn').forEach(function (b) { b.setAttribute('aria-checked', 'false'); });
+      btn.setAttribute('aria-checked', 'true');
+    });
+  });
+  document.querySelectorAll('.slot-btn').forEach(function (btn) {
+    if (btn.hasAttribute('aria-disabled')) return;
+    btn.addEventListener('click', function () {
+      var group = btn.closest('[role="radiogroup"]');
+      group.querySelectorAll('.slot-btn').forEach(function (b) { b.setAttribute('aria-checked', 'false'); });
+      btn.setAttribute('aria-checked', 'true');
+      if (btn.dataset.openSheet) openSheet(btn.dataset.openSheet);
+      else if (btn.closest('[data-screen="calendario"]')) openSheet('confirmacion');
+    });
+  });
+
+  // ── Servicios: selección múltiple + resumen sticky ──
+  var summary = document.getElementById('services-summary');
+  var continueBtn = document.getElementById('services-continue');
+  function updateServicesSummary() {
+    var checked = Array.prototype.slice.call(document.querySelectorAll('.service-checkbox:checked'));
+    if (checked.length === 0) { summary.textContent = ''; continueBtn.disabled = true; return; }
+    var total = checked.reduce(function (sum, c) { return sum + Number(c.dataset.price); }, 0);
+    summary.textContent = checked.length + ' servicio(s) — $' + total;
+    continueBtn.disabled = false;
+  }
+  document.querySelectorAll('.service-checkbox').forEach(function (c) { c.addEventListener('change', updateServicesSummary); });
+
+  // ── Confirmar reserva: loading state → pantalla de éxito ──
+  var confirmBtn = document.getElementById('confirm-submit');
+  var confirmLabel = document.getElementById('confirm-submit-label');
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', function () {
+      confirmBtn.disabled = true;
+      confirmLabel.textContent = 'Confirmando…';
+      setTimeout(function () {
+        closeSheet(document.getElementById('sheet-confirmacion'));
+        confirmBtn.disabled = false;
+        confirmLabel.textContent = 'Confirmar reserva';
+        showScreen('exito');
+      }, 900);
+    });
+  }
+
+  var reschedBtn = document.getElementById('reschedule-submit');
+  if (reschedBtn) {
+    reschedBtn.addEventListener('click', function () {
+      closeSheet(document.getElementById('sheet-confirmar-reprogramacion'));
+      showScreen('detalle-cita');
+    });
+  }
+
+  var cancelConfirmBtn = document.getElementById('cancel-confirm-btn');
+  if (cancelConfirmBtn) {
+    cancelConfirmBtn.addEventListener('click', function () {
+      closeSheet(document.getElementById('sheet-cancelar'));
+      showScreen('mis-citas');
+    });
+  }
+
+  // ── Demo de estados: Búsqueda (loading / empty / error / success) ──
+  var resultsContainer = document.getElementById('buscar-results');
+  var demoStates = {
+    loading: function () {
+      var html = '';
+      for (var i = 0; i < 3; i++) {
+        html += '<div class="flex gap-3 bg-bone/5 border border-steel/15 rounded-card p-3 mb-2"><div class="skeleton w-14 h-14 rounded-card flex-shrink-0"></div><div class="flex-1 space-y-2 py-1"><div class="skeleton h-3 w-2/3 rounded"></div><div class="skeleton h-3 w-1/3 rounded"></div></div></div>';
+      }
+      return html;
+    },
+    empty: function () {
+      return '<div class="flex flex-col items-center text-center py-16 px-2"><div class="w-16 h-16 rounded-pill bg-steel/10 flex items-center justify-center mb-4" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#5B6169" stroke-width="1.8"><circle cx="11" cy="11" r="7"/><path d="m21 21-4.3-4.3"/></svg></div><p class="font-display text-lg mb-1">No encontramos barberías en tu zona</p><p class="text-steel text-sm mb-6">Probá ampliando la búsqueda.</p><button class="bg-brass text-ink rounded-full px-6 py-3 font-semibold">Ampliar búsqueda</button></div>';
+    },
+    error: function () {
+      return '<div class="flex flex-col items-center text-center py-16 px-2"><div class="w-16 h-16 rounded-pill bg-ember/10 flex items-center justify-center mb-4" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#B5502E" stroke-width="1.8"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg></div><p class="font-display text-lg mb-1">No pudimos cargar resultados</p><p class="text-steel text-sm mb-6">Revisá tu conexión e intentá de nuevo.</p><button data-demo="buscar:success" class="border border-steel/40 text-bone rounded-full px-6 py-3">Reintentar</button></div>';
+    },
+    success: function () {
+      return [
+        { name: 'El Corte', dist: '350 m', next: 'Hoy 15:30' },
+        { name: 'Barba & Punta', dist: '620 m', next: 'Hoy 17:00' },
+        { name: 'Studio Rex', dist: '1.1 km', next: 'Mañana 10:00' },
+      ].map(function (s) {
+        return '<button data-nav="barberia" class="w-full flex items-center gap-3 bg-bone text-ink rounded-card shadow-card p-3 mb-2 text-left active:scale-[0.98] transition-transform">' +
+          '<span class="w-14 h-14 rounded-card bg-gradient-to-br from-brass to-brass-dark flex items-center justify-center font-display font-semibold text-ink flex-shrink-0">' + s.name.charAt(0) + '</span>' +
+          '<span class="flex-1"><span class="block font-medium">' + s.name + '</span><span class="block text-steel text-xs">' + s.dist + ' · Próximo: ' + s.next + '</span></span>' +
+          '</button>';
+      }).join('');
+    }
+  };
+  document.querySelectorAll('[data-demo]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      var parts = btn.dataset.demo.split(':');
+      var state = parts[1];
+      if (resultsContainer && demoStates[state]) resultsContainer.innerHTML = demoStates[state]();
+    });
+  });
+  if (resultsContainer) resultsContainer.innerHTML = demoStates.success();
+
+  showScreen('home');
+})();
+</script>
+
+</body>
+</html>
