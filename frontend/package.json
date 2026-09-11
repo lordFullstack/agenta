@@ -1,7 +1,11 @@
 {
   "name": "barbershop-pwa-frontend",
   "version": "1.0.0",
-  "scripts": { "test": "jest", "dev": "vite" },
+ "scripts": {
+  "dev": "vite",
+  "build": "vite build",
+  "test": "jest"
+},
   "devDependencies": {
     "@types/jest": "^29.5.0",
     "@types/node": "^20.0.0",
