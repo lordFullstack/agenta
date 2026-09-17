@@ -95,3 +95,8 @@ app.use((err: any, req: express.Request, res: express.Response, _next: express.N
   (req as any).log?.error({ err }, "unhandled_error");
   res.status(500).json({ error: "internal_error", message: "Ocurrió un error inesperado." });
 });
+
+// Vercel autodetecta este archivo como un framework "Express" de zero-config y lo invoca
+// directamente para la ruta raíz ("/"), en paralelo a api/index.ts + vercel.json — necesita
+// su propio default export además del named export que ya usa api/index.ts.
+export default app;
