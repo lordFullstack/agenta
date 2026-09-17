@@ -90,3 +90,9 @@ export function assertValidAvailabilityRequest(params: {
     throw new ValidationError("invalid_param", "date debe tener formato YYYY-MM-DD.");
   }
 }
+
+export const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export function isValidUuid(value: unknown): boolean {
+  return typeof value === "string" && UUID_REGEX.test(value);
+}

@@ -304,3 +304,167 @@ atacante puede rotar sesiones hasta que se revoque manualmente (`logout` revoca 
 refresh tokens del usuario) — el riesgo residual es real y está documentado en
 `SECURITY_RULES.md`, no oculto.
 STATUS: Activa — revisar antes de cualquier entorno productivo real.
+
+---
+
+**DEC-019**
+CATEGORY: Base de datos / Seguridad
+CONTEXT: Al construir Loop 07 se encontró que `business_hours` nunca tuvo RLS habilitado
+(migración 005 lo omitió — gap real, no decisión deliberada). La tabla no tiene `tenant_id`
+propio, solo `branch_id`.
+OPTIONS: (a) Agregar una columna `tenant_id` denormalizada a `business_hours` para poder
+usar el mismo patrón de comparación directa que el resto de las tablas, (b) política RLS
+con subquery contra `branches.tenant_id`.
+DECISION: (b).
+REASON: (a) es más simple de leer pero exige mantener esa columna sincronizada si algún día
+una sucursal cambiara de tenant (no ocurre en el modelo actual, pero es una asunción frágil
+a futuro). (b) no requiere esa sincronización — siempre resuelve el tenant real de la
+sucursal en el momento de la query. El costo (un subquery extra) es despreciable para el
+volumen de esta tabla.
+IMPACT: Migración 015. `BusinessService.setBusinessHours` además verifica pertenencia
+explícitamente ANTES de mutar (defensa en profundidad, mismo patrón que el resto del
+proyecto — nunca una sola capa de protección).
+STATUS: Activa. **Nota para Loop 08:** `staff_hours` y `time_off` tienen el mismo problema
+estructural (sin `tenant_id` propio, sin RLS) — no se resolvió acá porque son del dominio de
+gestión de barberos, no de configuración de negocio. Queda registrado en `KNOWN_ISSUES.md`
+para no perderlo.
+
+---
+
+**DEC-020**
+CATEGORY: Producto / Seguridad
+CONTEXT: Cómo un owner invita a un barbero nuevo a la plataforma — hace falta que el
+barbero termine con una cuenta autenticable (`users.password_hash`), pero un flujo de
+invitación completo (link único, expiración, el barbero elige su propia contraseña) es
+trabajo considerable.
+OPTIONS: (a) Flujo de invitación completo (token de invitación, endpoint de aceptación,
+el barbero define su password), (b) el owner define una contraseña temporal al invitar, se
+la comunica fuera de banda (WhatsApp, en persona), sin flujo de "cambiar contraseña" todavía.
+DECISION: (b), explícitamente como simplificación de este loop, no como diseño final.
+REASON: (a) es la UX correcta a largo plazo pero no es necesaria para que el resto del
+sistema (gestión de servicios/horarios/agenda) tenga sentido — se puede agregar después sin
+tocar el resto del modelo.
+IMPACT: `POST /v1/admin/staff` recibe `temp_password` en el body. **No existe todavía**
+`PUT /v1/auth/change-password` ni un flujo de invitación por token — el barbero queda con la
+contraseña que el owner eligió hasta que se construya eso. Ver `KNOWN_ISSUES.md`.
+STATUS: Activa — revisar antes de onboarding real de barberos fuera de un entorno de demo/test.
+
+---
+
+**DEC-021**
+CATEGORY: Producto / Proceso
+CONTEXT: Con Loops 00-08, 09, 10 y 11 completos, había varios frentes disponibles sin
+bloqueadores entre sí (Agenda, UI de barbería, Security Audit formal, notificaciones). Hacía
+falta decidir un orden explícito, no dejarlo implícito.
+OPTIONS: (a) UI de barbería primero (cierra el gap de que hoy no hay ninguna pantalla para
+ese lado), (b) Agenda (backend) primero, UI después de forma consolidada.
+DECISION: (b).
+REASON: Construir la UI ahora significaría hacerla dos veces — una para registro/config/
+servicios/barberos (ya listo) y otra para agenda apenas se termine. Cerrar primero la API
+completa del lado barbería y construir la UI una sola vez contra una superficie estable es
+más barato que iterar en dos pasadas. Agenda además es la pieza que le falta al backend
+para estar funcionalmente completo del lado barbería (`PRODUCT_VISION.md`: "ABRIR → VER
+AGENDA → ATENDER → SIGUIENTE CLIENTE").
+IMPACT: Orden decidido: Loop 12 (Agenda) → UI de barbería consolidada → Loop 16 (Security
+Audit formal) → Loop 15 (notificaciones) → Loops 14/18/19 (endurecimiento) → Loop 20.
+STATUS: Activa.
+
+---
+
+**DEC-022**
+CATEGORY: Seguridad
+CONTEXT: Al diseñar la agenda se encontró que RLS aísla por tenant, no por barbero — un
+usuario con rol `barber` autenticado tiene `tenantId` en su token, así que las políticas
+RLS existentes lo dejarían ver/modificar cualquier cita de su barbería, no solo las propias.
+OPTIONS: (a) Agregar una policy RLS adicional basada en `staff_id` (requeriría setear
+también `app.staff_id` por sesión, además de `app.tenant_id`), (b) resolver la restricción
+"solo mis citas" en la capa de servicio, explícitamente, sin tocar RLS.
+DECISION: (b).
+REASON: (a) agrega una segunda dimensión de contexto de sesión que complica el wiring
+existente para un caso que en realidad es de autorización de aplicación (qué puede ver un
+rol), no de aislamiento de datos entre organizaciones (que es lo que RLS resuelve). Mezclar
+ambos conceptos en RLS lo hace más difícil de razonar.
+IMPACT: `AgendaService` recibe `callerRole`/`callerStaffId` en cada método y fuerza
+`staffId = callerStaffId` cuando el caller es `barber`, ignorando cualquier `staffId`
+distinto que se pida — no lo rechaza con error, lo redirige a lo que ese rol puede ver,
+consistente con cómo se manejan los demás casos de "identidad derivada del token" en el
+proyecto (DEC-017).
+STATUS: Activa.
+
+---
+
+**DEC-023**
+CATEGORY: Seguridad
+CONTEXT: Loop 16 (Security Audit formal) — implementar rate limiting sin agregar
+infraestructura nueva (Redis) que el proyecto no tenía hasta ahora.
+OPTIONS: (a) Rate limiter distribuido (Redis), (b) rate limiter en memoria, por instancia.
+DECISION: (b), con la limitación documentada explícitamente.
+REASON: El proyecto corre en una sola instancia hoy. Agregar Redis solo para esto sería
+una dependencia nueva sin necesidad concreta todavía (viola DEVELOPMENT_RULES.md: "no
+instalar dependencias innecesarias"). Si el backend escala horizontalmente, el límite
+efectivo se vuelve (max × instancias) — no es una falla de seguridad grave (sigue limitando,
+solo que con menos precisión), así que se acepta como deuda técnica conocida, no como un
+riesgo que bloquee el cierre del proyecto.
+IMPACT: `rate-limit.middleware.ts`. Aplicado a OTP request/verify, login, registro de
+negocio, y creación de citas — los puntos de mayor exposición a abuso.
+STATUS: Activa. Migrar a Redis si el proyecto escala a múltiples instancias.
+
+---
+
+**DEC-024**
+CATEGORY: Seguridad / Alcance
+CONTEXT: Al cerrar Loop 16, quedó pendiente instrumentar `audit_logs` (la tabla existe,
+inmutable, desde Loop 1.1, pero ningún servicio escribe ahí todavía salvo
+`appointment_status_history`/`appointment_reschedules`, que cubren solo el ciclo de vida de
+una cita).
+OPTIONS: (a) Instrumentar todos los servicios de escritura ahora, como parte del cierre,
+(b) documentar explícitamente como diferido, con alcance claro de qué falta.
+DECISION: (b).
+REASON: Es un ítem MEDIUM, no CRITICAL/HIGH — los dos HIGH reales (rate limiting, validación
+de input) ya se resolvieron en este mismo loop. Forzar todo en un solo cierre por
+perfeccionismo no es "cerrar bien" — es no saber dónde parar. Cerrar bien significa dejar
+esto documentado con precisión suficiente para que se resuelva después sin re-descubrirlo.
+IMPACT: `audit_logs` sigue sin instrumentar. Ver `KNOWN_ISSUES.md` para el detalle exacto de
+qué acciones quedan sin auditar (config de tenant, alta/baja de servicios y barberos).
+STATUS: Activa — diferido a un loop futuro sin numeración asignada todavía.
+
+---
+
+**DEC-025**
+CATEGORY: Arquitectura / Base de datos / Proceso
+CONTEXT: Al pedir "los pasos para levantar el servidor" y ejecutarlo de verdad por primera
+vez (Postgres real instalado en el entorno, servidor Express real arrancado, requests HTTP
+reales), se encontraron DOS bugs críticos que 136 tests automatizados nunca detectaron:
+
+1. `resolve_appointment_duration()` leía `staff_members.buffer_minutes`, columna renombrada
+   a `buffer_after_minutes` en la migración 011 — rompía disponibilidad y creación de citas.
+2. La migración 011 intentaba crear `appointments.occupied_starts_at/ends_at` como columnas
+   `GENERATED ALWAYS AS ... STORED` con aritmética `timestamptz ± interval`. Postgres
+   rechaza esto (esos operadores son `STABLE`, no `IMMUTABLE`, requisito de `GENERATED`).
+   La migración falló en ese punto, pero como corría sin `ON_ERROR_STOP`, siguió ejecutando
+   el resto del archivo — incluyendo el `DROP CONSTRAINT` del anti-double-booking viejo, sin
+   que el `ADD CONSTRAINT` nuevo pudiera crearse (dependía de las columnas nunca creadas).
+   **Resultado real: la tabla `appointments` quedó sin NINGÚN constraint anti double-booking
+   desde que se aplicó la migración 011** — la garantía central de todo el proyecto, rota en
+   silencio, invisible para la suite de tests porque esos tests mockean `pg` y nunca corren
+   SQL real contra un schema real.
+
+OPTIONS: N/A — no era una decisión de diseño abierta, era un bug real que corregir.
+DECISION: Fix #1 en migración 017 (columna correcta). Fix #2 en migración 018 — se
+reemplazaron las columnas generadas por columnas normales mantenidas por trigger (los
+triggers sí pueden usar operadores `STABLE` sin restricción), se re-creó el índice GIST y
+el constraint `EXCLUDE`, y se agregó un trigger nuevo de `UPDATE` para recalcular el rango
+ocupado en reprogramaciones (la migración original solo lo calculaba en el `INSERT`).
+REASON: Los tests con `pg` mockeado (que son el 100% de la suite hasta este punto) validan
+que el CÓDIGO LLAMA a SQL con la forma esperada — nunca validan que ESE SQL sea
+sintácticamente válido ni que se aplique sin errores contra un schema real. Son
+complementarios, no sustitutos, del test de integración (`booking.integration.test.ts`, que
+sí requiere Postgres real y nunca se había corrido en ningún entorno hasta este checkpoint).
+IMPACT: Migraciones 017 y 018. **Cambio de proceso para el resto del proyecto:** de acá en
+más, cualquier migración que toque columnas generadas, renombres, o constraints debe
+aplicarse contra una instancia real de Postgres con `-v ON_ERROR_STOP=1` antes de
+considerarse terminada — no alcanza con que el archivo `.sql` "se vea bien" o con que los
+tests mockeados sigan en verde.
+STATUS: Activa. Este es el hallazgo que más cambia la confianza real en el cierre del
+proyecto — ver la sección "Resumen de cierre" en `CURRENT_STATE.md`, actualizada para
+reflejar esto explícitamente.

@@ -4,11 +4,12 @@ import { AuthService, InvalidCredentialsError } from "./auth.service";
 import { OtpExpiredOrInvalidError, OtpAttemptsExceededError } from "./otp.service";
 import { InvalidRefreshTokenError, TokenService } from "./token.service";
 import { authenticate } from "./middleware";
+import { otpRequestLimiter, loginLimiter } from "../rate-limit.middleware";
 
 export function buildAuthRoutes(auth: AuthService, tokens: TokenService): Router {
   const router = Router();
 
-  router.post("/v1/auth/otp/request", async (req: Request, res: Response) => {
+  router.post("/v1/auth/otp/request", otpRequestLimiter, async (req: Request, res: Response) => {
     const { phone } = req.body;
     if (!phone) return res.status(400).json({ error: "missing_phone" });
     await auth.requestCustomerOtp(phone);
@@ -16,7 +17,7 @@ export function buildAuthRoutes(auth: AuthService, tokens: TokenService): Router
     res.status(200).json({ message: "Si el número es válido, vas a recibir un código." });
   });
 
-  router.post("/v1/auth/otp/verify", async (req: Request, res: Response) => {
+  router.post("/v1/auth/otp/verify", loginLimiter, async (req: Request, res: Response) => {
     const { phone, code, full_name } = req.body;
     if (!phone || !code) return res.status(400).json({ error: "missing_params" });
     try {
@@ -29,7 +30,7 @@ export function buildAuthRoutes(auth: AuthService, tokens: TokenService): Router
     }
   });
 
-  router.post("/v1/auth/login", async (req: Request, res: Response) => {
+  router.post("/v1/auth/login", loginLimiter, async (req: Request, res: Response) => {
     const { identifier, password } = req.body;
     if (!identifier || !password) return res.status(400).json({ error: "missing_params" });
     try {

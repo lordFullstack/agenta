@@ -6,6 +6,181 @@ Numeración de LOOP = canónica oficial (ver `ROADMAP.md`).
 ---
 
 DATE: Checkpoint actual
+LOOP: Verificación real (post Loop 16) — el hallazgo más importante del cierre
+TYPE: FIX (CRITICAL) / PROCESO
+DESCRIPTION: Se instaló Postgres 16 real y se arrancó el servidor Express real por primera
+vez en todo el proyecto — hasta este punto, los 136 tests automatizados corrían contra `pg`
+mockeado o jsdom, nunca contra infraestructura real. Aparecieron 2 bugs críticos invisibles
+para toda la suite:
+
+1. `resolve_appointment_duration()` leía `buffer_minutes`, columna renombrada a
+   `buffer_after_minutes` en la migración 011 — rompía disponibilidad y creación de citas.
+   Fix: migración 017.
+2. La migración 011 fallaba a mitad de camino al intentar crear `occupied_starts_at`/
+   `occupied_ends_at` como columnas `GENERATED ALWAYS AS ... STORED` (Postgres rechaza
+   aritmética `timestamptz ± interval` ahí por no ser `IMMUTABLE`). Como corría sin
+   `ON_ERROR_STOP`, el resto del archivo seguía ejecutándose — dropeando el constraint
+   anti double-booking viejo sin que el nuevo pudiera crearse. **La tabla `appointments`
+   quedó sin ninguna protección anti double-booking activa desde la migración 011.**
+   Fix: migración 018 (columnas normales + triggers en vez de columnas generadas).
+
+Ambos fixes se verificaron con tráfico HTTP real: registro de barbería real, login OTP real
+(código leído del log de mock), creación de servicio/barbero/horario reales, consulta de
+disponibilidad real, y la prueba definitiva — **dos requests HTTP simultáneas al mismo slot
+exacto** contra el servidor real. Resultado: exactamente 1 cita creada (`pending`,
+confirmation_code real), la otra request recibió `409 slot_no_longer_available` con
+alternativas reales. Confirmado además con `SELECT` directo en la base de datos.
+FILES: `migrations/017_fix_buffer_column_reference.sql`,
+`migrations/018_fix_occupied_range_columns.sql`, `backend/src/index.ts` (nuevo — nunca
+había existido un punto de entrada real del servidor, solo servicios y rutas sueltas).
+IMPACT: Cierra los 2 bugs más graves de todo el proyecto. **Cambio de proceso:** toda
+migración que toque columnas generadas, renombres o constraints se corre de acá en más
+contra Postgres real con `-v ON_ERROR_STOP=1` antes de darse por buena — un archivo `.sql`
+"bien escrito" y tests mockeados en verde no alcanzan como evidencia de que un constraint
+de integridad esté realmente activo.
+
+---
+
+DATE: Checkpoint actual
+LOOP: 16
+TYPE: FEATURE / SECURITY
+DESCRIPTION: Security Audit formal. Se implementó rate limiting (ventana deslizante en
+memoria, DEC-023) sobre los puntos de mayor exposición a abuso: OTP request/verify, login,
+registro de negocio, creación de citas. Se agregó validación de formato de UUID en los 13
+parámetros de ruta que la necesitaban (rutas de reserva, cancelación, reprogramación, y
+todas las de administración) — rechaza con `400` antes de tocar la base de datos. Se revisó
+el checklist completo de `SECURITY_RULES.md`: autenticación, RBAC, RLS, SQL injection,
+IDOR, CSRF (no aplica — Bearer tokens, no cookies), XSS (mitigado, riesgo residual
+documentado), secrets (verificado que no hay ninguno real commiteado). Quedan 2 ítems
+MEDIUM diferidos con decisión explícita (DEC-024: `audit_logs` sin instrumentar).
+**Nota operativa:** este loop se completó en dos partes por un reinicio del entorno de
+desarrollo a mitad de camino — el código se reconstruyó desde el último zip conocido y se
+re-verificó con la suite completa antes de continuar, sin pérdida de trabajo real.
+FILES: `backend/src/rate-limit.middleware.ts`, `backend/src/validate-params.middleware.ts`,
+`backend/src/validation.ts` (agregado `isValidUuid`), rutas modificadas: `auth/auth.routes.ts`,
+`availability.routes.ts`, `business.routes.ts`, `catalog-management.routes.ts`,
+`agenda.routes.ts`, `backend/tests/rate-limit.test.ts`, `backend/tests/validate-params.test.ts`.
+IMPACT: 12 tests nuevos, 94/94 en la suite completa de backend (0 regresiones). Cierra los
+2 ítems HIGH de `SECURITY_RULES.md`. Loop 16 queda `DONE`.
+
+---
+
+DATE: Checkpoint actual
+LOOP: UI de barbería (cierre, DEC-021)
+TYPE: FEATURE
+DESCRIPTION: Se completaron las 3 pantallas que faltaban — Servicios (alta + desactivar),
+Barberos (invitar + pausar/reactivar + asignar servicios inline), Configuración (perfil +
+horario general semanal). Se encontró y corrigió una inconsistencia real de contrato:
+`setBusinessHours` en el cliente mandaba `snake_case`, pero el backend
+(`BusinessService.setBusinessHours`) espera `camelCase` porque la ruta pasa `req.body.hours`
+directo sin transformar — nunca se había ejercitado ese código hasta que se construyó la UI
+real que lo usa. Se agregaron 2 endpoints de lectura que faltaban:
+`GET /v1/admin/staff` (listar barberos del tenant), `GET /v1/admin/staff/:id/services`
+(servicios asignados a un barbero), `GET /v1/tenants/:id` (leer perfil antes de editarlo).
+FILES: `backend/src/catalog-management.service.ts` (agregado `listStaff`,
+`getStaffServices`), `backend/src/catalog-management.routes.ts` (2 rutas nuevas),
+`backend/src/business.service.ts` (agregado `getTenantProfile`),
+`backend/src/business.routes.ts` (1 ruta nueva), `backend/tests/business.test.ts` +
+`backend/tests/catalog-management.test.ts` (5 tests nuevos),
+`frontend/src/barbershop/api/barbershop-api-client.ts` (fix de contrato + métodos nuevos),
+`frontend/src/barbershop/hooks/useBarbershopApp.ts` (estado y acciones de las 3 pantallas),
+`frontend/src/barbershop/components/BarbershopApp.tsx` (`ServicesScreen`, `StaffScreen`,
+`SettingsScreen`).
+IMPACT: 82/82 tests de backend, 21/21 de cliente HTTP, cero errores de TypeScript en ambos
+paquetes. **La UI de barbería queda completa** — cierra `ISSUE-015`. Próximo paso: Loop 16
+(Security Audit formal), según DEC-021.
+
+---
+
+DATE: Checkpoint actual
+LOOP: UI de barbería (post Loop 12, DEC-021)
+TYPE: FEATURE
+DESCRIPTION: Primera versión de la app de barbería, real y conectada al backend (no
+mockup). `BarbershopApiClient` cubre los tres dominios construidos hasta ahora (negocio,
+catálogo de gestión, agenda) con el mismo patrón de tokens/refresh que el cliente de la app
+de reserva. `useBarbershopApp` orquesta sesión + agenda del día. `BarbershopApp.tsx`
+implementa Login, Dashboard (resumen del día) y Agenda (lista de citas con transición de
+estado un-tap y creación de walk-in vía bottom sheet). Layout con rail lateral en vez de
+bottom nav — a diferencia de la app de cliente, esta se usa mayormente en mostrador/tablet,
+no en una mano mientras se camina.
+FILES: `frontend/src/barbershop/api/barbershop-api-client.ts`,
+`frontend/src/barbershop/hooks/useBarbershopApp.ts`,
+`frontend/src/barbershop/components/BarbershopApp.tsx`,
+`frontend/tests/barbershop-api-client.test.ts`.
+IMPACT: 8 tests nuevos en verde, 21/21 en la suite completa de cliente HTTP (0 regresiones).
+**Parcial:** faltan las pantallas de Servicios, Barberos y Configuración — ver
+`KNOWN_ISSUES.md` ISSUE-015. El cliente API ya soporta esos endpoints, solo falta la UI.
+
+---
+
+DATE: Checkpoint actual
+LOOP: 12
+TYPE: FEATURE
+DESCRIPTION: Agenda del lado barbería. `AgendaService`: vista del día (`getAgenda`, con
+join a `appointments`/`staff_members`/`customers`/`users`), transiciones de estado
+(reutiliza la máquina de estados forzada por trigger desde la migración 006), walk-ins
+(mismo constraint anti double-booking que la reserva de cliente, encuentra-o-crea cliente
+por teléfono igual que el login OTP), bloqueos de urgencia. Se encontró y resolvió un matiz
+de seguridad antes de implementar: RLS aísla por tenant, no por barbero — un `barber`
+autenticado podría ver/modificar cualquier cita de su tenant si no se restringe
+explícitamente en la capa de servicio (DEC-022). `AgendaService` fuerza `staffId =
+callerStaffId` para el rol `barber` en cada método, sin excepción. Se agregó `staffId` al
+payload del JWT (antes solo existía para clientes vía `customerId`).
+FILES: `migrations` (ninguna nueva — reutiliza schema existente),
+`backend/src/agenda.service.ts`, `backend/src/agenda.routes.ts`,
+`backend/src/auth/token.service.ts` (agregado `staffId` al payload),
+`backend/src/auth/auth.service.ts` (`loginWithPassword` ahora resuelve `staffId`),
+`backend/tests/agenda.test.ts`.
+IMPACT: 15 tests nuevos en verde, 77/77 en la suite completa de backend (0 regresiones).
+Backend del lado barbería queda funcionalmente completo (onboarding + config + catálogo +
+agenda) — el próximo paso natural es la UI, consolidada de una sola vez (DEC-021).
+
+---
+
+DATE: Checkpoint actual
+LOOP: 08 (continuación)
+TYPE: FEATURE
+DESCRIPTION: CRUD completo de gestión de catálogo del lado barbería. `CatalogManagementService`:
+servicios (crear/editar/soft-delete), invitación de barberos (con simplificación consciente
+de password temporal, DEC-020), asignación bidireccional servicio↔barbero (verifica que
+AMBOS lados pertenezcan al tenant, no solo uno — caso de IDOR que cruza dos tablas),
+horario individual del barbero (mismo patrón de reemplazo-completo que `business_hours`),
+vacaciones/licencias. Todas las rutas viven bajo `/v1/admin/*`, separadas explícitamente de
+las de catálogo público. Se resolvió `ISSUE-013` (RLS faltante en `staff_hours`/`time_off`,
+migración 016) antes de exponer las rutas que escriben ahí — mismo criterio que Loop 07 con
+`business_hours`.
+FILES: `migrations/016_staff_hours_and_time_off_rls.sql`,
+`backend/src/catalog-management.service.ts`, `backend/src/catalog-management.routes.ts`,
+`backend/tests/catalog-management.test.ts`.
+IMPACT: 14 tests nuevos en verde, 62/62 en la suite completa de backend (0 regresiones).
+Loop 08 queda `DONE` — Loop 12 (Agenda) ya no tiene bloqueadores.
+
+---
+
+DATE: Checkpoint actual
+LOOP: 07
+TYPE: FEATURE
+DESCRIPTION: Onboarding de barberías y configuración de negocio. `BusinessService.
+registerBarbershop` crea usuario+tenant+branch+membership en una sola transacción, con
+resolución de slug y retry ante colisión (mismo patrón que el número de confirmación de
+citas). `updateTenantProfile`, `getBusinessHours`/`setBusinessHours` (reemplazo completo,
+validado), `setBranchActive` (pausar/reactivar, ya respetado por el motor de disponibilidad
+desde la migración 010). Todas las rutas mutantes verifican `req.user.tenantId ===
+:tenantId/:branchId` en DOS capas (ruta + servicio), no una sola. Al construir esto se
+encontró y corrigió un gap real: `business_hours` nunca tuvo RLS habilitado (migración 005
+lo omitió) — se agregó vía política con subquery a `branches.tenant_id`, ya que la tabla no
+tiene `tenant_id` propio (DEC-019). Se documentó el mismo gap pendiente en `staff_hours`/
+`time_off` como ISSUE-013, para no perderlo de vista en Loop 08. También se completó
+`API_CONTRACTS.md` con los endpoints de auth del Loop 06, que habían quedado sin documentar.
+FILES: `migrations/015_business_hours_rls.sql`, `backend/src/business.service.ts`,
+`backend/src/business.routes.ts`, `backend/tests/business.test.ts`.
+IMPACT: 10 tests nuevos en verde, 48/48 en la suite completa de backend (0 regresiones).
+Primera pieza de código del lado barbería — hasta ahora todo el proyecto era flujo de
+cliente.
+
+---
+
+DATE: Checkpoint actual
 LOOP: 11 (continuación)
 TYPE: FEATURE
 DESCRIPTION: Conexión real del frontend React al backend autenticado. `booking-api-client.ts`

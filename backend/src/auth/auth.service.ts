@@ -84,14 +84,15 @@ export class AuthService {
       [userId]
     );
     const { rows: staffRow } = await this.pool.query(
-      `SELECT tenant_id FROM staff_members WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
+      `SELECT id, tenant_id FROM staff_members WHERE user_id = $1 AND deleted_at IS NULL LIMIT 1`,
       [userId]
     );
 
     const tenantId = membership[0]?.tenant_id ?? staffRow[0]?.tenant_id;
     const role = membership[0]?.role ?? (staffRow.length > 0 ? "barber" : "customer");
+    const staffId = staffRow[0]?.id; // Loop 12: la agenda necesita saber "cuáles son mis citas"
 
-    return this.tokens.issueTokenPair({ sub: userId, role, tenantId });
+    return this.tokens.issueTokenPair({ sub: userId, role, tenantId, staffId });
   }
 
   async refresh(refreshToken: string, payload: Parameters<TokenService["rotateTokenPair"]>[1]): Promise<TokenPair> {

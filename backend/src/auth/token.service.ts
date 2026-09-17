@@ -12,6 +12,7 @@ export interface AccessTokenPayload {
   role: string;
   customerId?: string; // presente si el usuario tiene perfil de cliente
   tenantId?: string; // presente si el usuario es staff/admin de un tenant
+  staffId?: string; // presente si el usuario es un barbero (role === 'barber') — Loop 12
 }
 
 export interface TokenPair {

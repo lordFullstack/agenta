@@ -16,38 +16,50 @@ gestión del lado barbería (hoy solo existe el flujo de cliente).
 
 ## CURRENT LOOP
 
-**Loop 07 — Business / Barbershop** (numeración canónica). Loops 00-06, 09, 10 y 11
-completos; 08, 15 y 17 en progreso parcial. Ver `ROADMAP.md`.
+**MVP v1.0 — cierre de proyecto.** Todos los loops planeados (00-12, 16) completos. Ver
+`ROADMAP.md` y la sección "Resumen de cierre" en `CURRENT_STATE.md`.
 
 ## COMPLETED
 
 - Product Vision, Personas, JTBD, MVP/V2/Futuro (`PRODUCT_VISION.md`)
 - Arquitectura UX de 22 pantallas cliente+barbería (`UX_GUIDELINES.md`)
 - Design System completo con tokens Tailwind (`DESIGN_SYSTEM.md`)
-- Modelo de datos multi-tenant, 14 migraciones SQL numeradas (`DATABASE.md`, `/migrations`)
+- Modelo de datos multi-tenant, 16 migraciones SQL numeradas (`DATABASE.md`, `/migrations`)
 - Motor de disponibilidad en PL/pgSQL, con fix de validación de servicio-por-barbero
 - Anti doble-booking + buffer enforced por constraint de base de datos, no por app
 - Flujo de reserva completo: crear/cancelar/reprogramar, con idempotencia y manejo de
   concurrencia, timeout, network failure y retry
 - Autenticación y autorización completas: OTP (clientes), password (staff/admin), JWT +
   refresh rotable, RBAC, wiring real de `app.tenant_id` (RLS activo en runtime)
-- **Frontend React (`BookingFlow.tsx`) conectado al backend real**, con login OTP inline en
-  el paso de confirmación, refresh automático ante `401`, e identidad derivada del token
+- **Frontend React de cliente (`BookingFlow.tsx`) conectado al backend real**, con login OTP
+  inline en el paso de confirmación, refresh automático ante `401`
+- **Onboarding de barbería + configuración de negocio** (registro transaccional, perfil,
+  horario general con validación, pausar/reactivar sucursal)
+- **CRUD completo de servicios y barberos** (asignación bidireccional verificada, horario
+  individual, vacaciones/licencias) — RLS agregado a `staff_hours`/`time_off` de paso
+- **Agenda del lado barbería** (vista del día, transiciones de estado, walk-ins, bloqueos
+  de urgencia) — con la restricción de que un `barber` solo ve/modifica sus propias citas,
+  aunque RLS por sí solo lo dejaría ver todo su tenant (DEC-022)
+- **App de barbería, completa:** Login, Dashboard, Agenda (con walk-in), Servicios,
+  Barberos (con asignación de servicios inline), Configuración (perfil + horario general) —
+  todas conectadas al backend real (`frontend/src/barbershop/`)
+- **Security Audit formal (Loop 16):** rate limiting + validación de parámetros de ruta —
+  0 CRITICAL, 0 HIGH abiertos
 - Prototipo HTML+Tailwind interactivo de las 14 pantallas de cliente, testeado con jsdom
   (queda como referencia visual — no conectado al backend, ver `KNOWN_ISSUES.md` ISSUE-004)
-- 38 tests de backend + 13 de API client + 21 de humo del prototipo HTML, todos en verde
-  (72 total)
+- **136 tests automatizados en verde** (94 backend + 21 cliente HTTP + 21 prototipo HTML)
 
 ## IN PROGRESS
 
-Nada a medio terminar — este es un buen punto de corte para handoff.
+Ninguna tarea a medio terminar. **MVP v1.0 cerrado** — ver "Resumen de cierre" en
+`CURRENT_STATE.md` para el alcance exacto (qué es MVP real vs. qué es V2 por diseño).
 
 ## NEXT ACTION
 
-Dos frentes disponibles, sin bloqueadores entre sí:
-1. **Loop 07:** onboarding y configuración de negocio del lado barbería.
-2. **Loop 08 (continuación):** rutas de gestión de servicios/barberos protegidas con
-   `requireRole('owner', 'branch_admin')`.
+No hay bloqueadores para el MVP definido. Los próximos pasos posibles son todos V2 por
+diseño (ver `CURRENT_STATE.md`): pagos, notificaciones/OTP reales, PWA/offline, dashboard
+de KPIs, `audit_logs` instrumentado, invitación de barberos por token. Ninguno bloquea a
+otro — se puede elegir por prioridad de negocio cuando se retome el proyecto.
 
 ## ARCHITECTURE
 
@@ -59,7 +71,7 @@ en `ARCHITECTURE.md`.
 
 ## DATABASE
 
-21 tablas, 13 migraciones en `/migrations`, numeradas y ejecutables en orden. Resumen en
+21+ tablas, 16 migraciones en `/migrations`, numeradas y ejecutables en orden. Resumen en
 `DATABASE.md`. **La fuente de verdad real son los archivos `.sql`, no el resumen.**
 
 ## BUSINESS RULES
@@ -78,24 +90,26 @@ y `DESIGN_SYSTEM.md`.
 
 ## SECURITY
 
-**No implementado todavía: autenticación, autorización por rol, rate limiting.** RLS está
-definido en las migraciones pero requiere que la app haga `SET app.tenant_id` por conexión/
-transacción — **ese wiring todavía no existe en el código del backend**. Ver `SECURITY_RULES.md`
-y `KNOWN_ISSUES.md` (marcado como CRITICAL).
+**Auditado formalmente en Loop 16 — 0 CRITICAL, 0 HIGH abiertos.** Autenticación (OTP +
+password), RBAC, RLS wireado en runtime, rate limiting, validación de parámetros de ruta —
+todo implementado y testeado. 2 MEDIUM diferidos con decisión explícita: `audit_logs` sin
+instrumentar (DEC-024) y refresh token en `localStorage` (DEC-018, con mitigaciones). Ver
+`SECURITY_RULES.md` para el checklist completo con su resultado.
 
 ## KNOWN ISSUES
 
-Ver `KNOWN_ISSUES.md` completo. Los tres más importantes:
-1. Sin autenticación/autorización (CRITICAL)
-2. RLS sin wiring de `app.tenant_id` en el pool de conexiones (CRITICAL)
-3. Frontend (React y HTML) no conectado al backend real, usa datos de demo (HIGH)
+Ver `KNOWN_ISSUES.md` completo. Los más relevantes que quedan abiertos (todos de severidad
+MEDIUM o menor — no hay ningún CRITICAL/HIGH sin resolver):
+1. `audit_logs` sin instrumentar en servicios de escritura (MEDIUM, DEC-024)
+2. Sin flujo de invitación por token para barberos — password temporal (MEDIUM, DEC-020)
+3. Prototipo HTML standalone no conectado al backend (por diseño, ver ISSUE-004)
 
 ## RECENT DECISIONS
 
-Ver `DECISIONS_LOG.md`. Las más recientes y con más impacto: DEC-009 (buffer enforced vía
-columnas generadas + constraint, no solo cálculo de slots), DEC-011 (Idempotency-Key
-obligatoria en endpoints mutantes), DEC-013 (fusión de pantallas Calendario+Horarios en el
-cliente para minimizar pasos).
+Ver `DECISIONS_LOG.md` (24 decisiones registradas). Las del cierre de este checkpoint:
+DEC-021/022 (priorización Agenda→UI→Security Audit, y aislamiento por barbero en la
+agenda), DEC-023 (rate limiter en memoria, no distribuido), DEC-024 (`audit_logs` diferido
+conscientemente, no por descuido).
 
 ## FILES MODIFIED
 
@@ -108,9 +122,14 @@ evitar que los dos documentos queden desincronizados; si uno cambia, actualizar 
 
 ## LAST CHECKPOINT
 
-Reconciliación de Loop 00 con la plantilla oficial (segunda versión recibida) — numeración
-canónica de loops establecida (00-20), `KNOWN_ISSUES.md` y `CHANGELOG.md` reformateados a
-los templates exactos especificados. Ver `CHANGELOG.md` para el detalle completo.
+**Cierre de MVP v1.0.** Loop 16 (Security Audit formal) completado — rate limiting,
+validación de parámetros, checklist de `SECURITY_RULES.md` revisado con resultado 0
+CRITICAL/0 HIGH. Todos los loops planeados para el MVP (00-12, 16) están `DONE`. Ver la
+sección "Resumen de cierre" en `CURRENT_STATE.md` para el alcance exacto documentado —
+qué es MVP real y probado, y qué queda explícitamente diferido a V2 (no son bugs, son
+alcance). **Nota operativa:** este checkpoint incluyó un reinicio del entorno de desarrollo
+a mitad de la auditoría — el trabajo se reconstruyó desde el último zip commiteado y se
+re-verificó con la suite completa (94/94 backend) antes de continuar, sin pérdida real.
 
 ---
 

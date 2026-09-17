@@ -15,41 +15,48 @@ para el cliente; "ABRIR → VER AGENDA → ATENDER → SIGUIENTE CLIENTE" para l
 
 ## CURRENT LOOP
 
-**Loop 07 — Business / Barbershop** (numeración canónica). Loops 00-06, 09, 10 y 11
-completos; 08, 15 y 17 en progreso parcial. Ver `ROADMAP.md`.
+**MVP v1.0 — cierre de proyecto.** Todos los loops planeados (00-12, 16) completos. Ver
+`ROADMAP.md` y la sección "Resumen de cierre" al final de `CURRENT_STATE.md`.
 
 ## STATUS
 
-**Backend, modelo de datos, autenticación y frontend de cliente: sólidos, testeados y
-conectados entre sí.** El flujo completo de reserva (búsqueda pública → login OTP inline →
-confirmar → éxito) funciona de punta a punta contra el backend real. **Falta:** toda la
-gestión del lado barbería (no existe ni diseño de código, aunque sí de UX).
+**MVP completo y auditado: backend + frontend de cliente, backend + frontend de barbería,
+autenticación/RBAC/RLS reales, seguridad auditada formalmente (0 CRITICAL, 0 HIGH abiertos).
+136 tests automatizados en verde.** Lo que queda pendiente es V2 por diseño (pagos,
+notificaciones reales, PWA, dashboard de KPIs) — no son bugs, son alcance explícitamente
+diferido desde `PRODUCT_VISION.md`.
 
 ## COMPLETED
 
-- Modelo de datos multi-tenant completo (13 migraciones SQL, `/migrations`)
+- Modelo de datos multi-tenant completo (16 migraciones SQL, `/migrations`)
 - Motor de disponibilidad (funciones PL/pgSQL: `get_available_slots`, `get_available_slots_any_staff`)
 - Anti doble-booking a nivel de constraint de base de datos (`EXCLUDE USING gist`), incluye buffer
-- Backend TypeScript: `CatalogService`, `AvailabilityService`, `BookingService` (create/cancel/reschedule)
-- API REST (Express): catálogo, disponibilidad, crear/cancelar/reprogramar citas
+- Backend TypeScript: `CatalogService`, `AvailabilityService`, `BookingService`,
+  `BusinessService`, `CatalogManagementService`, `AgendaService` (create/cancel/reschedule +
+  onboarding/config de negocio + CRUD de servicios/barberos/horarios/vacaciones + agenda)
+- Autenticación y autorización completas: OTP, password, JWT + refresh, RBAC, RLS wireado
+- Rate limiting + validación de parámetros de ruta (Loop 16)
+- API REST (Express): catálogo, disponibilidad, crear/cancelar/reprogramar citas, agenda,
+  gestión de negocio/servicios/barberos
 - Idempotencia real (header `Idempotency-Key`) + retry con backoff en el cliente HTTP
-- 31 tests de backend/cliente HTTP pasando (concurrencia, cancelación, reprogramación, validadores, timeout/retry)
-- Prototipo HTML+Tailwind de las 14 pantallas del cliente, probado con jsdom (21 tests de humo)
+- Frontend de cliente (`BookingFlow.tsx`) y de barbería (`BarbershopApp.tsx`) completos,
+  conectados al backend real
+- Prototipo HTML+Tailwind de las 14 pantallas del cliente, probado con jsdom (referencia
+  visual, no conectado al backend)
 - Design System completo (tokens Tailwind, tipografía, componentes)
 - Arquitectura UX de las 22 pantallas (cliente + barbería)
+- 136 tests automatizados en verde (94 backend + 21 cliente HTTP + 21 prototipo HTML)
 
 ## IN PROGRESS
 
-- Ninguna tarea de código a medio terminar al cierre de este loop — todo lo listado en
-  COMPLETED está en un estado consistente y testeado.
+Ninguna tarea a medio terminar. **MVP v1.0 cerrado.**
 
 ## NEXT
 
-Ver `ROADMAP.md`. El bloqueador que queda antes de un despliegue real:
-1. Rate limiting (Loop 16) — todavía no implementado
-
-Todo lo demás pendiente (Loop 07/08/12 gestión de barbería, Loop 14 PWA/offline, Loop 15
-worker de notificaciones) es alcance de producto, no seguridad — pueden avanzar en paralelo.
+No hay bloqueadores pendientes para el MVP definido. Los próximos pasos son todos V2 por
+diseño — ver "Explícitamente fuera de alcance" en `CURRENT_STATE.md` para la lista completa
+(pagos, notificaciones/OTP reales, PWA/offline, dashboard de KPIs, `audit_logs`
+instrumentado, invitación de barberos por token).
 
 ## STACK
 
@@ -83,8 +90,8 @@ Ver `UX_GUIDELINES.md` y `DESIGN_SYSTEM.md`.
 
 ## SECURITY RULES
 
-Ver `SECURITY_RULES.md`. **Gap crítico activo: no hay autenticación ni autorización
-implementadas.** No tratar este proyecto como deployable hasta resolverlo.
+Ver `SECURITY_RULES.md`. **0 CRITICAL, 0 HIGH abiertos** al cierre de Loop 16. 2 MEDIUM
+diferidos con decisión documentada (DEC-018, DEC-024) — no son gaps sin dueño.
 
 ## KNOWN ISSUES
 

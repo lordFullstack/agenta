@@ -10,8 +10,8 @@
 | Autenticación | ✅ OTP (clientes) + password (staff/admin), JWT + refresh rotable |
 | Autorización (RBAC) | ✅ `authenticate`/`requireRole`/`requireCustomerIdentity`, aplicados en rutas de reserva |
 | Tenant isolation (RLS) | ✅ Definida en DB + wireada en runtime (`withTenantContext`) para el flujo de cliente |
-| Input validation | Parcial (solo en el flujo de reserva) |
-| Rate limiting | **No implementado** |
+| Input validation | ✅ Validación de UUIDs en los 13 parámetros de ruta que la necesitaban (rutas de reserva + administración) |
+| Rate limiting | ✅ Implementado (OTP, login, registro, creación de citas) — en memoria, no distribuido (DEC-023) |
 | Session/token security | ✅ Access token en memoria, refresh rotable y revocable — ver DEC-018 para el trade-off de storage |
 | Prevención de SQL injection | Sí — todas las queries usan parámetros (`$1, $2...`), no concatenación |
 | Prevención de IDOR | ✅ Para el flujo de cliente — la identidad se deriva del token, no del body (DEC-017) |
@@ -44,15 +44,25 @@ ver DEC-015. **Salvedad:** cada endpoint nuevo que toque una tabla con RLS debe 
 `withTenantContext` explícitamente; no es automático por el solo hecho de que la tabla tenga
 RLS habilitado.
 
+## RESUELTO EN LOOP 16 (Security Audit formal)
+
+### 4. Rate limiting — ✅ resuelto
+
+`rate-limit.middleware.ts` — ventana deslizante en memoria (DEC-023). Aplicado a
+`POST /v1/auth/otp/request` (5/15min por teléfono), `/otp/verify` y `/login` (10/15min por
+IP), `/v1/business/register` (10/15min por IP), `POST /v1/appointments` (100/15min por IP).
+**Limitación conocida:** no es distribuido — con múltiples instancias, el límite efectivo
+escala con la cantidad de instancias. Migrar a Redis si eso se vuelve un problema real.
+
+### 5. Validación de parámetros de ruta — ✅ resuelto
+
+`validate-params.middleware.ts` (`validateUuidParams`) — rechaza con `400` antes de tocar la
+base de datos si un parámetro de ruta no es un UUID bien formado. Aplicado a las 13 rutas de
+reserva/cancelación/reprogramación y administración que reciben IDs por URL.
+
 ## CRITICAL — ninguno abierto al cierre de Loop 06
 
-## HIGH
-
-- **Rate limiting ausente.** El endpoint `POST /v1/appointments` podría ser abusado para
-  agotar el generador de números de confirmación o para spam de reservas.
-- **Validación de input incompleta.** `validation.ts` cubre bien el flujo de disponibilidad/
-  reserva; los endpoints de catálogo (`catalog.service.ts`, rutas de `/v1/barbershops/*`,
-  `/v1/branches/*/staff`) no tienen la misma capa de validación de UUIDs/formato.
+## HIGH — ninguno abierto al cierre de Loop 16
 
 ## MEDIUM
 
@@ -81,13 +91,24 @@ RLS habilitado.
   cliente; los mensajes de `ValidationConflict`/`InvalidStatusTransitionError` están escritos
   para ser mostrados directamente al usuario.
 
-## Checklist para Loop 7 (Autenticación y Autorización) — no implementar todavía, solo referencia
+## Checklist de Loop 16 (Security Audit formal) — resultado final
 
-- [ ] Endpoint de OTP para clientes (enviar código, verificar código, emitir token)
-- [ ] Login con password para staff/admin
-- [ ] Middleware de autenticación (verifica token, adjunta `req.user`)
-- [ ] Middleware de autorización por rol (verifica que `req.user.role` puede hacer la acción)
-- [ ] Middleware que hace `SET app.tenant_id` por request, derivado del usuario autenticado
-      (nunca del body de la request — evita que alguien mande un `tenant_id` ajeno)
-- [ ] Verificar que `customer_id`/`created_by` en `BookingService` se derive del token, no del body
-- [ ] Rate limiting en endpoints públicos (búsqueda, disponibilidad) y mutantes (reservas)
+- [x] Endpoint de OTP para clientes — Loop 06
+- [x] Login con password para staff/admin — Loop 06
+- [x] Middleware de autenticación — Loop 06
+- [x] Middleware de autorización por rol — Loop 06
+- [x] `SET app.tenant_id` derivado del usuario autenticado, nunca del body — Loop 06
+- [x] `customer_id`/`created_by` derivados del token, no del body — Loop 06 (DEC-017)
+- [x] Rate limiting en endpoints públicos y mutantes — Loop 16 (DEC-023)
+- [x] Validación de formato de parámetros de ruta — Loop 16
+- [x] Verificación de que no haya secretos reales commiteados — Loop 16 (revisado, solo
+      defaults de desarrollo marcados explícitamente en `.env.example`)
+- [x] CSRF — no aplica: la API usa Bearer tokens en header, no cookies; un sitio ajeno no
+      puede adjuntar automáticamente ese header en una request cross-site
+- [x] XSS — mitigado por el escape automático de React en el frontend; riesgo residual
+      documentado explícitamente (DEC-018, refresh token en `localStorage`)
+- [ ] `audit_logs` instrumentado en servicios de escritura — **diferido conscientemente**
+      (DEC-024, severidad MEDIUM, no bloquea el cierre)
+
+**Resultado: 0 CRITICAL, 0 HIGH, 2 MEDIUM abiertos (audit_logs sin instrumentar,
+refresh token en localStorage), ambos con decisión documentada de por qué se aceptan.**

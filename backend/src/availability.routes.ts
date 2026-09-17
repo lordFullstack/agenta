@@ -12,6 +12,8 @@ import { CatalogService } from "./catalog.service";
 import { ValidationError, BookingWindowConfig } from "./validation";
 import { TokenService } from "./auth/token.service";
 import { authenticate, requireCustomerIdentity } from "./auth/middleware";
+import { mutationLimiter } from "./rate-limit.middleware";
+import { validateUuidParams } from "./validate-params.middleware";
 
 export function buildRoutes(
   availability: AvailabilityService,
@@ -68,7 +70,7 @@ export function buildRoutes(
 
   // ── Crear cita — requiere sesión de cliente (OTP verificado). customer_id/created_by
   //    se derivan de req.user, NUNCA del body — es el fix central de este loop (ISSUE-002). ──
-  router.post("/v1/appointments", requireAuth, requireCustomerIdentity, async (req: Request, res: Response) => {
+  router.post("/v1/appointments", mutationLimiter, requireAuth, requireCustomerIdentity, async (req: Request, res: Response) => {
     const idempotencyKey = req.header("Idempotency-Key");
     if (!idempotencyKey) {
       return res.status(400).json({ error: "missing_idempotency_key", message: "El header Idempotency-Key es obligatorio." });
@@ -102,7 +104,7 @@ export function buildRoutes(
   });
 
   // ── Cancelación — requiere sesión. cancelled_by se deriva del token. ──
-  router.post("/v1/appointments/:id/cancel", requireAuth, async (req: Request, res: Response) => {
+  router.post("/v1/appointments/:id/cancel", requireAuth, validateUuidParams("id"), async (req: Request, res: Response) => {
     if (!req.body.tenant_id) {
       return res.status(400).json({ error: "missing_tenant_id" });
     }
@@ -131,7 +133,7 @@ export function buildRoutes(
   });
 
   // ── Reprogramación — requiere sesión. rescheduled_by se deriva del token. ──
-  router.post("/v1/appointments/:id/reschedule", requireAuth, async (req: Request, res: Response) => {
+  router.post("/v1/appointments/:id/reschedule", requireAuth, validateUuidParams("id"), async (req: Request, res: Response) => {
     const idempotencyKey = req.header("Idempotency-Key");
     if (!idempotencyKey) {
       return res.status(400).json({ error: "missing_idempotency_key", message: "El header Idempotency-Key es obligatorio." });

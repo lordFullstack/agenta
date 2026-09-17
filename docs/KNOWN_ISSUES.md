@@ -198,6 +198,114 @@ FIX: Correr el test como parte del checklist de cualquier PR que toque
 
 ---
 
+## Resueltos en Loop 08 (continuación)
+
+**ISSUE-013 (era MEDIUM)** — `staff_hours`/`time_off` sin RLS. RESUELTO: migración 016,
+mismo patrón de subquery que `business_hours` (DEC-019). `time_off` además NO tiene policy
+de lectura pública (a diferencia de `staff_hours`), porque cuándo un barbero está de
+vacaciones es información operativa interna, no algo que un cliente necesite consultar
+directamente.
+
+---
+
+**ISSUE-014**
+DATE: Loop 08 (continuación)
+SEVERITY: MEDIUM
+DESCRIPTION: No existe flujo de "cambiar contraseña" ni de invitación por token para
+barberos — el owner define una contraseña temporal al invitar (`POST /v1/admin/staff`) y
+se la comunica fuera de banda. Ver DEC-020 para el razonamiento completo.
+REPRODUCTION: Invitar a un barbero y confirmar que no hay ningún endpoint para que cambie
+esa contraseña inicial.
+CAUSE: Simplificación deliberada — no bloqueaba el resto del sistema, se puede agregar sin
+tocar el modelo de datos existente.
+WORKAROUND: El owner comunica la contraseña temporal directamente (WhatsApp, en persona).
+STATUS: Abierto.
+FIX: Sin loop asignado todavía — candidato natural para agrupar con cualquier mejora futura
+de Loop 06 (auth), ya que reutiliza la misma infraestructura de `password_hash`/bcrypt.
+
+---
+
+**ISSUE-015**
+DATE: UI de barbería (post Loop 12)
+SEVERITY: MEDIUM
+DESCRIPTION: La app de barbería (`BarbershopApp.tsx`) tiene Login, Dashboard y Agenda
+conectados al backend real, pero **no tiene pantallas de Servicios, Barberos ni
+Configuración** — el cliente API (`barbershop-api-client.ts`) ya expone todos los métodos
+necesarios (`createService`, `inviteStaff`, `setBusinessHours`, etc.), solo falta la UI.
+REPRODUCTION: Intentar navegar a "Servicios", "Barberos" o "Configuración" desde el nav
+lateral — los ítems existen pero no renderizan ninguna pantalla todavía.
+CAUSE: Se priorizó Login+Dashboard+Agenda por ser las pantallas de uso diario más frecuente
+("ABRIR → VER AGENDA → ATENDER", `PRODUCT_VISION.md`); las de configuración se usan una vez
+al onboardear, no todos los días.
+WORKAROUND: Se puede llamar a la API directamente (Postman, curl) para gestionar servicios/
+barberos/configuración mientras tanto.
+STATUS: **Resuelto** — ver "Resueltos en UI de barbería" más abajo.
+FIX: `BarbershopApp.tsx` completado con Servicios, Barberos y Configuración.
+
+---
+
+**ISSUE-016**
+DATE: UI de barbería, completada
+SEVERITY: LOW
+DESCRIPTION: `PUT /v1/branches/:branchId/business-hours` y `PUT /v1/admin/staff/:staffId/hours`
+esperan el body en `camelCase` (`dayOfWeek`/`opensAt`/`closesAt`), a diferencia de toda la
+demás API que usa `snake_case`. No es un bug — es como quedó construido originalmente (la
+ruta pasa `req.body.hours` directo al servicio sin transformar) — pero es una inconsistencia
+real de contrato que alguien puede pisar de nuevo si no la conoce.
+REPRODUCTION: Mandar `{ hours: [{ day_of_week: "mon", ... }] }` a cualquiera de esas dos
+rutas — no rompe con un error claro, simplemente el campo no matchea y el `COALESCE`/
+default se aplica silenciosamente.
+CAUSE: Falta de un mapeo de campos consistente en `business.routes.ts`/
+`catalog-management.routes.ts` para esas dos rutas específicas.
+WORKAROUND: Documentado explícitamente en `API_CONTRACTS.md` — el cliente
+(`barbershop-api-client.ts`) ya manda los campos correctos.
+STATUS: Abierto (de baja severidad — no es una falla de seguridad, es una trampa de DX).
+FIX: Sin loop asignado — normalizar a `snake_case` en esas dos rutas específicas rompería
+compatibilidad con el cliente ya escrito, así que requiere actualizar ambos lados a la vez.
+
+## Resueltos por arranque real del servidor (post Loop 16) — LOS MÁS IMPORTANTES
+
+**Encontrados recién al ejecutar el proyecto de verdad** (Postgres real instalado, servidor
+Express real arrancado, requests HTTP reales) — ningún test automatizado los detectó porque
+toda la suite hasta este punto mockea `pg`. Ver DECISIONS_LOG.md DEC-025 para el detalle
+completo.
+
+**BUG-001 (era CRITICAL, no tenía número de ISSUE porque nunca se había detectado)** —
+`resolve_appointment_duration()` leía la columna `buffer_minutes`, renombrada a
+`buffer_after_minutes` en la migración 011. Rompía `GET /v1/availability`,
+`POST /v1/appointments`, y `POST /v1/admin/walk-ins` — es decir, buena parte del valor
+central del producto. RESUELTO: migración 017.
+
+**BUG-002 (era CRITICAL, el más grave encontrado en todo el proyecto)** — La tabla
+`appointments` no tenía NINGÚN constraint anti double-booking activo desde que se aplicó la
+migración 011 (que falló a mitad de camino sin que nadie lo notara — dropeó el constraint
+viejo, nunca creó el nuevo, porque dependía de columnas generadas que Postgres rechaza por
+no ser `IMMUTABLE`). **Se verificó con una prueba real de dos requests HTTP simultáneas al
+mismo slot antes y después del fix** — antes del fix esto no se probó explícitamente porque
+el bug #1 ya bloqueaba llegar tan lejos; con ambos fixes aplicados, la prueba de
+concurrencia real confirmó exactamente 1 cita creada, la otra request recibió `409` con
+alternativas. RESUELTO: migración 018.
+
+**Lección de proceso, ya aplicada:** de acá en más, toda migración que toque columnas
+generadas, renombres o constraints se corre contra Postgres real con
+`-v ON_ERROR_STOP=1` antes de darse por buena — un archivo `.sql` que "se ve bien" y tests
+mockeados en verde no son suficientes para confiar en un constraint de integridad.
+
+## Resueltos en UI de barbería (completada)
+
+**ISSUE-015 (era MEDIUM)** — Faltaban las pantallas de Servicios, Barberos y Configuración.
+RESUELTO: `BarbershopApp.tsx` completo, conectado al backend real. De paso se agregaron 2
+endpoints de lectura que faltaban (`GET /v1/admin/staff`, `GET /v1/admin/staff/:id/services`,
+`GET /v1/tenants/:id`) — no existían porque nunca se habían necesitado desde una UI real.
+
+## Resueltos en Loop 07
+
+**`business_hours` sin RLS (precursor de ISSUE-013)** — encontrado y corregido en el mismo
+loop en que se construyó el primer endpoint que escribe ahí (`PUT
+/v1/branches/:branchId/business-hours`). Ver migración 015 y DEC-019. No llegó a tener
+número de ISSUE formal porque se resolvió antes de exponer ningún endpoint vulnerable — se
+detectó en la fase de ANALYZE del loop, no en producción.
+
 ## Resueltos en Loop 06 (ver DECISIONS_LOG.md DEC-015/016/017)
 
 **ISSUE-001 (era CRITICAL)** — No existía autenticación en ningún endpoint. RESUELTO:
@@ -215,6 +323,23 @@ honesta:** esto cubre las rutas ya existentes (reserva, cancelación, reprograma
 disponibilidad); cuando se construyan las rutas de gestión de barbería (Loop 07/08/12), cada
 una nueva debe aplicar el mismo patrón — no es automático por el solo hecho de que RLS esté
 habilitado en la tabla.
+
+---
+
+**ISSUE-013**
+DATE: Loop 07 (encontrado al resolver el mismo problema en `business_hours`)
+SEVERITY: MEDIUM
+DESCRIPTION: `staff_hours` y `time_off` tienen el mismo problema estructural que tenía
+`business_hours` antes de este checkpoint (ver DEC-019): no tienen `tenant_id` propio, y no
+tienen RLS habilitado. El aislamiento hoy depende 100% de que el código de aplicación filtre
+bien por `staff_id`, sin respaldo de la base de datos.
+REPRODUCTION: Ninguna ruta expone todavía escritura sobre estas tablas (Loop 08 no
+construyó eso aún), así que hoy no es explotable — pero el gap existe en el schema.
+CAUSE: Se resolvió `business_hours` porque Loop 07 lo tocaba directamente; `staff_hours`/
+`time_off` son del dominio de Loop 08 (gestión de barberos), que todavía no tiene rutas.
+WORKAROUND: N/A — no hay endpoints que lo exploten todavía.
+STATUS: **Resuelto en Loop 08 (continuación)** — ver "Resueltos en Loop 08" más abajo.
+FIX: Migración 016 (`staff_hours_and_time_off_rls.sql`).
 
 ## Resueltos (histórico previo — no reabrir sin nueva evidencia)
 
