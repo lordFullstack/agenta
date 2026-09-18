@@ -70,7 +70,11 @@ const allowedOrigins = (process.env.FRONTEND_URL ?? "http://localhost:5173")
 
 // ── Armar la app ──
 export const app = express();
-app.use(helmet());
+// crossOriginResourcePolicy en "same-origin" (el default de Helmet) bloquea a nivel de
+// navegador cualquier fetch cross-origin a esta API, incluso con CORS bien configurado —
+// el frontend vive en otro dominio de Vercel, así que esta API necesita ser consumible
+// cross-origin por diseño.
+app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
 app.use(
   cors({
     origin: allowedOrigins,
