@@ -39,6 +39,7 @@ function Landing() {
 
   return (
     <div className="min-h-screen bg-ink text-bone font-body flex flex-col items-center justify-center px-4 gap-10">
+      <img src="/agenta-logo.svg" alt="Agenta" className="h-14 md:h-16 w-auto" />
       <h1 className="font-display text-3xl md:text-5xl font-semibold tracking-tight text-center">
         Reservá tu turno
       </h1>

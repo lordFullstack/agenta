@@ -153,6 +153,7 @@ export function RegisterBarbershopScreen({ onRegistered }: { onRegistered: (bran
 
   return (
     <div className="min-h-screen bg-ink text-bone font-body flex flex-col items-center justify-center px-6 py-12">
+      <img src="/agenta-logo.svg" alt="Agenta" className="h-12 w-auto mb-6" />
       <h1 className="font-display text-3xl font-semibold mb-1">Registrá tu barbería</h1>
       <p className="text-steel text-sm mb-8">Creá la cuenta del dueño/a y tu primera sucursal</p>
 
