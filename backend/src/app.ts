@@ -65,7 +65,7 @@ const auth = new AuthService(pool, otp, tokens);
 // (ej: "https://mi-app.vercel.app,https://miapp.com"). Default a Vite local en dev.
 const allowedOrigins = (process.env.FRONTEND_URL ?? "http://localhost:5173")
   .split(",")
-  .map((origin) => origin.trim())
+  .map((origin) => origin.trim().replace(/\/+$/, ""))
   .filter(Boolean);
 
 // ── Armar la app ──
