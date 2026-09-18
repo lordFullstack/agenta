@@ -4,6 +4,12 @@
 // mismo código sirve tanto para el servidor local de larga duración (`src/index.ts`)
 // como para el handler serverless de Vercel (`api/index.ts`).
 import express from "express";
+// Parchea Router para reenviar automáticamente al error handler los rechazos de
+// promesas de handlers async — sin esto, Express 4 deja un `throw err` (o un await
+// sin capturar) dentro de un handler async como unhandled rejection: la request
+// queda colgada hasta el timeout de 300s de Vercel en vez de responder rápido con
+// un 500. Se vio en prod tanto en /v1/auth/otp/request como en /v1/tenants/:id/logo.
+import "express-async-errors";
 import cors from "cors";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
