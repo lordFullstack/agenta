@@ -128,6 +128,20 @@ export class BusinessService {
     return rows[0];
   }
 
+  /**
+   * Devuelve la sucursal "principal" (la más antigua) del tenant del caller — usado
+   * para que el panel pueda loguear a un owner/admin sin que tenga que saber ni
+   * escribir a mano el UUID de su propia sucursal.
+   */
+  async getPrimaryBranch(callerTenantId: string) {
+    const { rows } = await this.pool.query(
+      `SELECT id, name FROM branches WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC LIMIT 1`,
+      [callerTenantId]
+    );
+    if (rows.length === 0) throw new TenantMismatchError();
+    return rows[0];
+  }
+
   async updateTenantProfile(
     tenantId: string,
     callerTenantId: string,

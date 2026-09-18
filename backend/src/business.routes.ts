@@ -36,6 +36,18 @@ export function buildBusinessRoutes(business: BusinessService, tokens: TokenServ
     }
   });
 
+  // ── Sucursal principal del caller — permite loguear sin conocer el branchId de antemano ──
+  router.get("/v1/admin/my-branch", requireAuth, requireOwnerOrAdmin, async (req: Request, res: Response) => {
+    if (!req.user!.tenantId) return res.status(403).json({ error: "forbidden" });
+    try {
+      const branch = await business.getPrimaryBranch(req.user!.tenantId);
+      res.status(200).json({ branch });
+    } catch (err) {
+      if (err instanceof TenantMismatchError) return res.status(404).json({ error: "not_found", message: err.message });
+      throw err;
+    }
+  });
+
   // ── Perfil del negocio — requiere ser owner/branch_admin DE ESE tenant, no de cualquiera ──
   router.get("/v1/tenants/:tenantId", requireAuth, requireOwnerOrAdmin, validateUuidParams("tenantId"), async (req: Request, res: Response) => {
     if (req.user!.tenantId !== req.params.tenantId) {

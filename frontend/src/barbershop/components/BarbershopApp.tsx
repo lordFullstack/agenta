@@ -5,6 +5,17 @@ import { BarbershopApiClient, ApiError } from "../api/barbershop-api-client";
 
 const api = new BarbershopApiClient((import.meta as any).env?.VITE_API_URL ?? "http://localhost:3000");
 
+/**
+ * Login sin conocer el branchId de antemano: autentica y resuelve la sucursal
+ * principal del propio tenant — evita que el owner tenga que escribir su UUID a
+ * mano (fuente de errores reales, ver ISSUE de branchId inválido en la URL).
+ */
+export async function loginAndGetBranchId(identifier: string, password: string): Promise<string> {
+  await api.login(identifier, password);
+  const { branch } = await api.getMyBranch();
+  return branch.id;
+}
+
 export function BarbershopApp({ branchId }: { branchId: string }) {
   const app = useBarbershopApp(api, branchId);
 
@@ -68,12 +79,13 @@ export function BarbershopApp({ branchId }: { branchId: string }) {
 
 // ── Login ──
 
-function LoginScreen({ onLogin, error }: { onLogin: (id: string, pw: string) => void; error?: string }) {
+export function LoginScreen({ onLogin, error }: { onLogin: (id: string, pw: string) => void; error?: string }) {
   const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-6">
+    <div className="min-h-screen bg-ink text-bone font-body flex flex-col items-center justify-center px-6">
+      <img src="/agenta-logo.svg" alt="Agenta" className="h-10 w-auto mb-6" />
       <h1 className="font-display text-3xl font-semibold mb-1">Barbería</h1>
       <p className="text-steel text-sm mb-8">Panel de gestión</p>
 

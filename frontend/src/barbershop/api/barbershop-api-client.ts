@@ -211,6 +211,10 @@ export class BarbershopApiClient {
   }
 
   // ── Negocio (Loop 07) ──
+  /** Sucursal principal del caller — evita que el owner tenga que saber/escribir su branchId. */
+  getMyBranch(): Promise<{ branch: { id: string; name: string } }> {
+    return this.authJson("GET", "/v1/admin/my-branch");
+  }
   getTenantProfile(tenantId: string) {
     return this.authJson("GET", `/v1/tenants/${tenantId}`);
   }
