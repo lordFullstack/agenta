@@ -217,11 +217,12 @@ function ConfirmSheet({
 }: {
   state: BookingFlowState;
   onConfirm: (note?: string) => void;
-  onRequestOtp: (phone: string) => void;
+  onRequestOtp: (phone: string, email: string) => void;
   onVerifyOtp: (code: string, fullName?: string) => void;
 }) {
   const [note, setNote] = useState("");
   const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [fullName, setFullName] = useState("");
 
@@ -261,7 +262,7 @@ function ConfirmSheet({
             </>
           ) : state.authStatus === "otp_sent" ? (
             <>
-              <p className="text-steel text-sm mb-3">Te mandamos un código a {state.authPhone}.</p>
+              <p className="text-steel text-sm mb-3">Te mandamos un código a {state.authEmail}.</p>
               <input
                 type="text"
                 inputMode="numeric"
@@ -288,18 +289,25 @@ function ConfirmSheet({
             </>
           ) : (
             <>
-              <p className="text-steel text-sm mb-3">Ingresá tu teléfono para confirmar la reserva.</p>
+              <p className="text-steel text-sm mb-3">Ingresá tu teléfono y email para confirmar la reserva.</p>
               <input
                 type="tel"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+54 9 11 5555-0000"
+                className="w-full bg-transparent border-b-2 border-steel/30 focus:border-brass text-ink text-sm py-2 outline-none mb-3"
+              />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="tu@email.com"
                 className="w-full bg-transparent border-b-2 border-steel/30 focus:border-brass text-ink text-sm py-2 outline-none mb-4"
               />
               {state.authError && <p className="text-ember text-xs mb-3">{state.authError}</p>}
               <button
-                onClick={() => onRequestOtp(phone)}
-                disabled={phone.length < 8}
+                onClick={() => onRequestOtp(phone, email)}
+                disabled={phone.length < 8 || !email.includes("@")}
                 className="w-full bg-brass text-ink font-semibold rounded-full py-4 disabled:opacity-40 active:scale-95 transition-all"
               >
                 Enviar código

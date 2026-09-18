@@ -34,6 +34,7 @@ export interface BookingFlowState {
   // no requiere sesión — recién acá.
   authStatus: AuthStatus;
   authPhone?: string;
+  authEmail?: string;
   authError?: string;
 }
 
@@ -100,11 +101,11 @@ export function useBookingFlow(api: BookingApiClient) {
     setState((s) => ({ ...s, selectedSlot: slot, step: "confirm" }));
   }, []);
 
-  const requestLoginOtp = useCallback(async (phone: string) => {
+  const requestLoginOtp = useCallback(async (phone: string, email: string) => {
     setState((s) => ({ ...s, authError: undefined }));
     try {
-      await api.requestOtp(phone);
-      setState((s) => ({ ...s, authStatus: "otp_sent", authPhone: phone }));
+      await api.requestOtp(phone, email);
+      setState((s) => ({ ...s, authStatus: "otp_sent", authPhone: phone, authEmail: email }));
     } catch (err) {
       setState((s) => ({ ...s, authError: toDisplayError(err).message }));
     }

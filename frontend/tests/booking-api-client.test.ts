@@ -141,7 +141,7 @@ describe("BookingApiClient — auth: OTP y tokens (Loop 06/11)", () => {
   it("requestOtp llama al endpoint correcto sin requerir sesión previa", async () => {
     global.fetch = jest.fn(() => Promise.resolve(jsonResponse(200, { message: "ok" }))) as any;
     const client = new BookingApiClient("http://test");
-    await client.requestOtp("+5491100000000");
+    await client.requestOtp("+5491100000000", "cliente@example.com");
     expect(global.fetch).toHaveBeenCalledWith(
       "http://test/v1/auth/otp/request",
       expect.objectContaining({ method: "POST" })

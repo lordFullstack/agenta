@@ -128,12 +128,12 @@ export class BookingApiClient {
 
   // ── Auth (Loop 06) ──
 
-  async requestOtp(phone: string) {
+  async requestOtp(phone: string, email: string) {
     const res = await withRetry(() =>
       fetchWithTimeout(`${this.baseUrl}/v1/auth/otp/request`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone, email }),
       })
     );
     return parseJsonResponse(res);

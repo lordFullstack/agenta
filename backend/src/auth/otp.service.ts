@@ -1,6 +1,7 @@
 // src/auth/otp.service.ts
 import { Pool } from "pg";
 import crypto from "crypto";
+import { sendOtpEmail } from "./email.service";
 
 const OTP_TTL_MINUTES = 5;
 const MAX_ATTEMPTS = 5;
@@ -33,22 +34,23 @@ export class OtpService {
   constructor(private pool: Pool) {}
 
   /**
-   * Genera un código, lo persiste hasheado, y lo "envía" (mock — loguea en vez de
-   * llamar a un proveedor de SMS real, que no está integrado todavía).
+   * Genera un código, lo persiste hasheado, y lo envía por email — el canal de
+   * verificación de clientes es email, no SMS (decisión de producto: evita el
+   * costo por SMS y la integración de un proveedor de SMS aparte).
+   * `phone` sigue siendo la clave que identifica al cliente (contacto, FK lógica
+   * hacia users.phone); `email` es solo el canal de entrega del código.
    */
-  async requestOtp(phone: string): Promise<void> {
+  async requestOtp(phone: string, email: string): Promise<void> {
     const code = generateCode();
     const codeHash = hashCode(phone, code);
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
     await this.pool.query(
-      `INSERT INTO otp_codes (phone, code_hash, expires_at) VALUES ($1, $2, $3)`,
-      [phone, codeHash, expiresAt]
+      `INSERT INTO otp_codes (phone, email, code_hash, expires_at) VALUES ($1, $2, $3, $4)`,
+      [phone, email, codeHash, expiresAt]
     );
 
-    // Mock de envío — reemplazar por integración real de SMS en un loop futuro.
-    // eslint-disable-next-line no-console
-    console.log(`[OTP mock] Enviando código ${code} a ${phone} (expira en ${OTP_TTL_MINUTES} min)`);
+    await sendOtpEmail(email, code);
   }
 
   /**
@@ -56,10 +58,12 @@ export class OtpService {
    * Incrementa `attempts` en cada intento fallido — no revela si el teléfono existe
    * o no, ni si el código expiró vs. es incorrecto (mismo error genérico) para no dar
    * pistas a un atacante haciendo fuerza bruta.
+   * Devuelve el email al que se mandó el código, para que el caller pueda
+   * guardarlo en `users` al crear/actualizar la identidad del cliente.
    */
-  async verifyOtp(phone: string, code: string): Promise<void> {
+  async verifyOtp(phone: string, code: string): Promise<{ email: string | null }> {
     const { rows } = await this.pool.query(
-      `SELECT id, code_hash, attempts, expires_at FROM otp_codes
+      `SELECT id, code_hash, attempts, expires_at, email FROM otp_codes
        WHERE phone = $1 AND consumed_at IS NULL
        ORDER BY created_at DESC LIMIT 1`,
       [phone]
@@ -78,5 +82,6 @@ export class OtpService {
     }
 
     await this.pool.query(`UPDATE otp_codes SET consumed_at = now() WHERE id = $1`, [otp.id]);
+    return { email: otp.email ?? null };
   }
 }

@@ -14,8 +14,8 @@ export class InvalidCredentialsError extends Error {
 export class AuthService {
   constructor(private pool: Pool, private otp: OtpService, private tokens: TokenService) {}
 
-  async requestCustomerOtp(phone: string): Promise<void> {
-    await this.otp.requestOtp(phone);
+  async requestCustomerOtp(phone: string, email: string): Promise<void> {
+    await this.otp.requestOtp(phone, email);
   }
 
   /**
@@ -23,17 +23,24 @@ export class AuthService {
    * `users`/`customers`, se crea acá mismo — el OTP verificado ES la prueba de identidad,
    * no hace falta un paso de registro separado (menos fricción, ver PRODUCT_VISION.md:
    * "reservar sin llamar a nadie", el registro no debería ser una barrera aparte).
+   * El canal de verificación es email (no SMS) — `email` viene de `otp.verifyOtp`,
+   * que a su vez lo lee de la fila de `otp_codes` que generó `requestOtp`.
    */
   async verifyCustomerOtpAndLogin(phone: string, code: string, fullName?: string): Promise<TokenPair> {
-    await this.otp.verifyOtp(phone, code); // lanza si es inválido/expirado/agotado
+    const { email } = await this.otp.verifyOtp(phone, code); // lanza si es inválido/expirado/agotado
 
-    const { rows: existingUsers } = await this.pool.query(`SELECT id FROM users WHERE phone = $1`, [phone]);
+    const { rows: existingUsers } = await this.pool.query(`SELECT id, email FROM users WHERE phone = $1`, [phone]);
 
     let userId: string;
     let customerId: string;
 
     if (existingUsers.length > 0) {
       userId = existingUsers[0].id;
+      // Completa el email solo si el usuario no tenía uno todavía — no pisa un
+      // email ya verificado en un login anterior con uno nuevo sin verificar.
+      if (!existingUsers[0].email && email) {
+        await this.pool.query(`UPDATE users SET email = $1 WHERE id = $2`, [email, userId]);
+      }
       const { rows: existingCustomers } = await this.pool.query(
         `SELECT id FROM customers WHERE user_id = $1`,
         [userId]
@@ -48,8 +55,8 @@ export class AuthService {
       }
     } else {
       const { rows: newUser } = await this.pool.query(
-        `INSERT INTO users (phone, full_name) VALUES ($1, $2) RETURNING id`,
-        [phone, fullName ?? "Cliente"]
+        `INSERT INTO users (phone, email, full_name) VALUES ($1, $2, $3) RETURNING id`,
+        [phone, email, fullName ?? "Cliente"]
       );
       userId = newUser[0].id;
       const { rows: newCustomer } = await this.pool.query(

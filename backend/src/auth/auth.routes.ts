@@ -10,11 +10,11 @@ export function buildAuthRoutes(auth: AuthService, tokens: TokenService): Router
   const router = Router();
 
   router.post("/v1/auth/otp/request", otpRequestLimiter, async (req: Request, res: Response) => {
-    const { phone } = req.body;
-    if (!phone) return res.status(400).json({ error: "missing_phone" });
-    await auth.requestCustomerOtp(phone);
+    const { phone, email } = req.body;
+    if (!phone || !email) return res.status(400).json({ error: "missing_params" });
+    await auth.requestCustomerOtp(phone, email);
     // Respuesta idéntica exista o no el teléfono, para no filtrar qué números están registrados.
-    res.status(200).json({ message: "Si el número es válido, vas a recibir un código." });
+    res.status(200).json({ message: "Si los datos son válidos, vas a recibir un código por email." });
   });
 
   router.post("/v1/auth/otp/verify", loginLimiter, async (req: Request, res: Response) => {
@@ -26,6 +26,9 @@ export function buildAuthRoutes(auth: AuthService, tokens: TokenService): Router
     } catch (err) {
       if (err instanceof OtpAttemptsExceededError) return res.status(429).json({ error: "too_many_attempts", message: err.message });
       if (err instanceof OtpExpiredOrInvalidError) return res.status(401).json({ error: "invalid_otp", message: err.message });
+      if ((err as any).code === "23505") {
+        return res.status(409).json({ error: "email_already_registered", message: "Ese email ya está en uso por otra cuenta." });
+      }
       throw err;
     }
   });
