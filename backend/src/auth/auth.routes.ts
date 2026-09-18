@@ -1,5 +1,5 @@
 // src/auth/auth.routes.ts
-import { Router, Request, Response } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { AuthService, InvalidCredentialsError } from "./auth.service";
 import { OtpExpiredOrInvalidError, OtpAttemptsExceededError } from "./otp.service";
 import { InvalidRefreshTokenError, TokenService } from "./token.service";
@@ -9,12 +9,19 @@ import { otpRequestLimiter, loginLimiter } from "../rate-limit.middleware";
 export function buildAuthRoutes(auth: AuthService, tokens: TokenService): Router {
   const router = Router();
 
-  router.post("/v1/auth/otp/request", otpRequestLimiter, async (req: Request, res: Response) => {
+  router.post("/v1/auth/otp/request", otpRequestLimiter, async (req: Request, res: Response, next: NextFunction) => {
     const { phone, email } = req.body;
     if (!phone || !email) return res.status(400).json({ error: "missing_params" });
-    await auth.requestCustomerOtp(phone, email);
-    // Respuesta idéntica exista o no el teléfono, para no filtrar qué números están registrados.
-    res.status(200).json({ message: "Si los datos son válidos, vas a recibir un código por email." });
+    try {
+      await auth.requestCustomerOtp(phone, email);
+      // Respuesta idéntica exista o no el teléfono, para no filtrar qué números están registrados.
+      res.status(200).json({ message: "Si los datos son válidos, vas a recibir un código por email." });
+    } catch (err) {
+      // Express 4 no reenvía rechazos de promesas al error handler solo; sin este catch,
+      // una falla de Resend deja la request colgada hasta el timeout de 300s de Vercel
+      // en vez de responder rápido (visto en prod: el botón "Enviar código" no hacía nada).
+      next(err);
+    }
   });
 
   router.post("/v1/auth/otp/verify", loginLimiter, async (req: Request, res: Response) => {
