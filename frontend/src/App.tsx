@@ -63,7 +63,7 @@ function Landing() {
         className="w-full max-w-sm flex flex-col gap-3"
         onSubmit={(e) => {
           e.preventDefault();
-          if (slug.trim()) navigate(`/b/${slug.trim()}`);
+          if (slug.trim()) navigate(`/b/${encodeURIComponent(slug.trim())}`);
         }}
       >
         <label className="font-body text-xs uppercase tracking-wide text-steel">
@@ -71,7 +71,7 @@ function Landing() {
         </label>
         <input
           className="bg-bone/5 border border-steel/40 rounded text-bone font-body text-base py-3 px-4 outline-none focus:border-brass focus:shadow-brass transition-colors"
-          placeholder="ej: barberia-el-corte"
+          placeholder="ej: Barbería El Corte"
           value={slug}
           onChange={(e) => setSlug(e.target.value)}
         />

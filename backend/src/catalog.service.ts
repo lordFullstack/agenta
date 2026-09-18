@@ -1,5 +1,6 @@
 // src/catalog.service.ts
 import { Pool } from "pg";
+import { slugify } from "./slugify";
 
 export interface BarbershopProfile {
   id: string;
@@ -28,8 +29,14 @@ export interface StaffOption {
 export class CatalogService {
   constructor(private pool: Pool) {}
 
-  /** Paso 1: perfil público de la barbería por slug. */
-  async getBarbershopBySlug(slug: string): Promise<BarbershopProfile | null> {
+  /**
+   * Paso 1: perfil público de la barbería por slug. Normaliza lo que llega con la
+   * misma función que genera el slug al registrar — así "Barbería El Socio",
+   * "barberia el socio" o "BARBERIA-EL-SOCIO" encuentran lo mismo que
+   * "barberia-el-socio" (la mayoría de la gente no escribe el slug exacto).
+   */
+  async getBarbershopBySlug(rawSlug: string): Promise<BarbershopProfile | null> {
+    const slug = slugify(rawSlug);
     const { rows } = await this.pool.query(
       `SELECT t.id, t.trade_name, t.slug, t.timezone, b.id AS branch_id
        FROM tenants t

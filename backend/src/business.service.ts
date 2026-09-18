@@ -3,6 +3,7 @@ import { Pool } from "pg";
 import bcrypt from "bcryptjs";
 import { TokenService, TokenPair } from "./auth/token.service";
 import { withTenantContext } from "./db/tenant-context";
+import { slugify } from "./slugify";
 
 export class SlugGenerationError extends Error {
   constructor() {
@@ -38,15 +39,6 @@ export interface BusinessHourInput {
   dayOfWeek: "sun" | "mon" | "tue" | "wed" | "thu" | "fri" | "sat";
   opensAt: string; // "HH:MM"
   closesAt: string;
-}
-
-function slugify(name: string): string {
-  return name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "") // saca acentos
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
 }
 
 export class BusinessService {
