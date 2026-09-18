@@ -1,17 +1,23 @@
 import React, { useState } from "react";
 import { Routes, Route, useNavigate, useParams } from "react-router-dom";
 import { BookingFlow } from "./components/BookingFlow";
-import { BarbershopApp } from "./barbershop/components/BarbershopApp";
+import { BarbershopApp, RegisterBarbershopScreen } from "./barbershop/components/BarbershopApp";
 
 export default function App() {
   return (
     <Routes>
       <Route path="/" element={<Landing />} />
       <Route path="/b/:slug" element={<BookingFlowRoute />} />
+      <Route path="/negocio/registro" element={<RegisterRoute />} />
       <Route path="/negocio/:branchId" element={<BarbershopAppRoute />} />
       <Route path="*" element={<NotFound />} />
     </Routes>
   );
+}
+
+function RegisterRoute() {
+  const navigate = useNavigate();
+  return <RegisterBarbershopScreen onRegistered={(branchId) => navigate(`/negocio/${branchId}`)} />;
 }
 
 function BookingFlowRoute() {
@@ -85,6 +91,12 @@ function Landing() {
             Ingresar al panel
           </button>
         </form>
+        <button
+          onClick={() => navigate("/negocio/registro")}
+          className="w-full text-center text-steel text-sm mt-3 underline"
+        >
+          ¿Todavía no tenés cuenta? Registrá tu barbería
+        </button>
       </div>
     </div>
   );

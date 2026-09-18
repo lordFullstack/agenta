@@ -1,7 +1,7 @@
 // frontend/src/barbershop/components/BarbershopApp.tsx
 import React, { useState } from "react";
 import { useBarbershopApp, AppointmentRow } from "../hooks/useBarbershopApp";
-import { BarbershopApiClient } from "../api/barbershop-api-client";
+import { BarbershopApiClient, ApiError } from "../api/barbershop-api-client";
 
 const api = new BarbershopApiClient((import.meta as any).env?.VITE_API_URL ?? "http://localhost:3000");
 
@@ -102,6 +102,104 @@ function LoginScreen({ onLogin, error }: { onLogin: (id: string, pw: string) => 
           Ingresar
         </button>
       </div>
+    </div>
+  );
+}
+
+// ── Registro — onboarding público, punto de entrada para una barbería nueva ──
+
+export function RegisterBarbershopScreen({ onRegistered }: { onRegistered: (branchId: string) => void }) {
+  const [form, setForm] = useState({
+    tradeName: "",
+    legalName: "",
+    ownerFullName: "",
+    ownerPhone: "",
+    ownerPassword: "",
+  });
+  const [error, setError] = useState<string | undefined>();
+  const [loading, setLoading] = useState(false);
+
+  const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
+    setForm((f) => ({ ...f, [field]: e.target.value }));
+
+  const canSubmit =
+    form.tradeName.trim() && form.legalName.trim() && form.ownerPhone.trim() && form.ownerPassword.length >= 8;
+
+  const submit = async () => {
+    if (!canSubmit || loading) return;
+    setError(undefined);
+    setLoading(true);
+    try {
+      const result = await api.registerBarbershop({
+        tradeName: form.tradeName.trim(),
+        legalName: form.legalName.trim(),
+        ownerFullName: form.ownerFullName.trim() || undefined,
+        ownerPhone: form.ownerPhone.trim(),
+        ownerPassword: form.ownerPassword,
+      });
+      onRegistered(result.branchId);
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "phone_already_registered") {
+        setError("Ese teléfono ya tiene una cuenta. Iniciá sesión en vez de registrarte.");
+      } else if (err instanceof ApiError) {
+        setError(err.message);
+      } else {
+        setError("No pudimos registrar la barbería. Probá de nuevo.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col items-center justify-center min-h-screen px-6 py-12">
+      <h1 className="font-display text-3xl font-semibold mb-1">Registrá tu barbería</h1>
+      <p className="text-steel text-sm mb-8">Creá la cuenta del dueño/a y tu primera sucursal</p>
+
+      <div className="w-full max-w-sm space-y-4">
+        <Field label="Nombre comercial" value={form.tradeName} onChange={set("tradeName")} placeholder="Barbería El Corte" />
+        <Field label="Razón social" value={form.legalName} onChange={set("legalName")} placeholder="El Corte SRL" />
+        <Field label="Tu nombre" value={form.ownerFullName} onChange={set("ownerFullName")} placeholder="Opcional" />
+        <Field label="Tu teléfono" value={form.ownerPhone} onChange={set("ownerPhone")} placeholder="+54911..." />
+        <Field label="Contraseña (mín. 8 caracteres)" type="password" value={form.ownerPassword} onChange={set("ownerPassword")} />
+
+        {error && <p className="text-ember text-xs">{error}</p>}
+
+        <button
+          onClick={submit}
+          disabled={!canSubmit || loading}
+          className="w-full bg-brass text-ink font-semibold rounded-full py-3.5 disabled:opacity-40 active:scale-95 transition-all"
+        >
+          {loading ? "Creando cuenta…" : "Crear mi barbería"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onChange,
+  placeholder,
+  type = "text",
+}: {
+  label: string;
+  value: string;
+  onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
+  placeholder?: string;
+  type?: string;
+}) {
+  return (
+    <div>
+      <label className="block text-xs text-steel mb-1">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        className="w-full bg-transparent border-b-2 border-steel/30 focus:border-brass text-bone py-2 outline-none"
+      />
     </div>
   );
 }
