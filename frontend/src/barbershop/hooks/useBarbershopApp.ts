@@ -195,6 +195,19 @@ export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
     [api]
   );
 
+  const uploadStaffPhoto = useCallback(
+    async (staffId: string, file: File) => {
+      setActionError(undefined);
+      try {
+        await api.uploadStaffPhoto(staffId, file);
+        await loadStaff();
+      } catch (err) {
+        setActionError(err instanceof ApiError ? err.message : "No pudimos subir la foto.");
+      }
+    },
+    [api, loadStaff]
+  );
+
   // ── Configuración ──
   const loadSettings = useCallback(async () => {
     if (!session?.tenantId) return;
@@ -226,6 +239,36 @@ export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
       }
     },
     [api, session]
+  );
+
+  const uploadLogo = useCallback(
+    async (file: File) => {
+      if (!session?.tenantId) return;
+      setSettingsSaved(false);
+      try {
+        await api.uploadTenantLogo(session.tenantId, file);
+        setSettingsSaved(true);
+        await loadSettings();
+      } catch (err) {
+        setSettingsError(err instanceof ApiError ? err.message : "No pudimos subir el logo.");
+      }
+    },
+    [api, session, loadSettings]
+  );
+
+  const uploadCover = useCallback(
+    async (file: File) => {
+      if (!session?.tenantId) return;
+      setSettingsSaved(false);
+      try {
+        await api.uploadTenantCover(session.tenantId, file);
+        setSettingsSaved(true);
+        await loadSettings();
+      } catch (err) {
+        setSettingsError(err instanceof ApiError ? err.message : "No pudimos subir la portada.");
+      }
+    },
+    [api, session, loadSettings]
   );
 
   const saveBusinessHours = useCallback(
@@ -277,6 +320,7 @@ export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
     inviteStaff,
     toggleStaffStatus,
     assignService,
+    uploadStaffPhoto,
     getStaffServices: api.getStaffServices.bind(api),
     // Configuración
     tenant,
@@ -286,6 +330,8 @@ export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
     settingsSaved,
     saveTenantProfile,
     saveBusinessHours,
+    uploadLogo,
+    uploadCover,
     setBranchActive: api.setBranchActive.bind(api),
   };
 }

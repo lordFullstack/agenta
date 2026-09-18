@@ -18,7 +18,7 @@ export function BookingFlow({ barbershopSlug }: { barbershopSlug: string }) {
       {state.step === "barbershop" && <ScreenLoading label="Cargando barbería…" />}
 
       {state.step === "service" && (
-        <ServiceStep services={state.services} onContinue={selectServices} />
+        <ServiceStep barbershop={state.barbershop} services={state.services} onContinue={selectServices} />
       )}
 
       {state.step === "barber" && (
@@ -61,12 +61,56 @@ function ScreenLoading({ label }: { label: string }) {
   );
 }
 
+// ── Encabezado de perfil: portada, logo, dirección, señal de confianza ──
+
+function BarbershopHeader({ barbershop }: { barbershop: BookingFlowState["barbershop"] }) {
+  if (!barbershop) return null;
+  const mapsUrl = barbershop.address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(barbershop.address)}`
+    : null;
+
+  return (
+    <div className="mb-4">
+      <div
+        className="relative h-36 bg-steel/20 bg-cover bg-center"
+        style={barbershop.coverUrl ? { backgroundImage: `url(${barbershop.coverUrl})` } : undefined}
+      >
+        <div className="absolute inset-0 bg-gradient-to-b from-ink/0 to-ink/90" />
+        <div className="absolute left-5 -bottom-8 w-18 h-18 rounded-pill bg-bone border-4 border-ink overflow-hidden shadow-float z-10">
+          {barbershop.logoUrl ? (
+            <img src={barbershop.logoUrl} alt={barbershop.tradeName} className="w-full h-full object-cover" />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-ink font-display font-semibold text-xl">
+              {barbershop.tradeName.charAt(0)}
+            </div>
+          )}
+        </div>
+      </div>
+      <div className="pt-11 px-5">
+        <h1 className="font-display text-xl font-semibold mb-1">{barbershop.tradeName}</h1>
+        {mapsUrl && (
+          <a href={mapsUrl} target="_blank" rel="noreferrer" className="text-steel text-xs underline">
+            Ver ubicación en el mapa
+          </a>
+        )}
+        {!!barbershop.completedAppointments && (
+          <div className="inline-flex items-center gap-1.5 bg-brass/15 text-brass border border-brass/30 rounded-pill px-3 py-1 text-xs font-medium mt-3">
+            +{barbershop.completedAppointments} turnos realizados
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Paso 2: Servicios ──
 
 function ServiceStep({
+  barbershop,
   services,
   onContinue,
 }: {
+  barbershop: BookingFlowState["barbershop"];
   services: BookingFlowState["services"];
   onContinue: (ids: string[]) => void;
 }) {
@@ -78,7 +122,9 @@ function ServiceStep({
   const total = services.filter((s) => selected.includes(s.id)).reduce((sum, s) => sum + s.basePrice, 0);
 
   return (
-    <div className="px-4 pt-6">
+    <div className="pt-6">
+      <BarbershopHeader barbershop={barbershop} />
+      <div className="px-4">
       <h1 className="font-display text-2xl font-semibold mb-4">Elegí tu servicio</h1>
 
       {services.length === 0 ? (
@@ -102,6 +148,7 @@ function ServiceStep({
           ))}
         </div>
       )}
+      </div>
 
       <div className="fixed inset-x-0 bottom-0 bg-ink/90 backdrop-blur-xl border-t border-brass/20 p-4 pb-safe">
         {selected.length > 0 && (
@@ -134,10 +181,21 @@ function BarberStep({ barbers, onSelect }: { barbers: BookingFlowState["barbers"
           <button
             key={b.id}
             onClick={() => onSelect(b.id)}
-            className="bg-bone text-ink rounded-card shadow-card p-3 text-left active:scale-[0.98] transition-transform"
+            className="bg-bone text-ink rounded-card shadow-card p-3 text-left active:scale-[0.98] transition-transform flex items-center gap-3"
           >
-            <p className="font-medium">{b.fullName}</p>
-            <p className="text-steel text-xs font-mono">{b.durationMinutes} min · ${b.price}</p>
+            <div className="w-12 h-12 rounded-pill bg-steel/15 overflow-hidden flex-shrink-0">
+              {b.avatarUrl ? (
+                <img src={b.avatarUrl} alt={b.fullName} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center font-display font-semibold text-steel">
+                  {b.fullName.charAt(0)}
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="font-medium">{b.fullName}</p>
+              <p className="text-steel text-xs font-mono">{b.durationMinutes} min · ${b.price}</p>
+            </div>
           </button>
         ))}
       </div>

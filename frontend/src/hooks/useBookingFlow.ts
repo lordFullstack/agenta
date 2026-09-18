@@ -17,10 +17,19 @@ export type AuthStatus = "unauthenticated" | "otp_sent" | "authenticated";
 
 export interface BookingFlowState {
   step: BookingStep;
-  barbershop?: { id: string; tradeName: string; branchId: string; timezone: string };
+  barbershop?: {
+    id: string;
+    tradeName: string;
+    branchId: string;
+    timezone: string;
+    logoUrl?: string | null;
+    coverUrl?: string | null;
+    address?: string | null;
+    completedAppointments?: number;
+  };
   services: Array<{ id: string; name: string; basePrice: number; baseDurationMinutes: number }>;
   selectedServiceIds: string[];
-  barbers: Array<{ id: string; fullName: string; price: number; durationMinutes: number }>;
+  barbers: Array<{ id: string; fullName: string; price: number; durationMinutes: number; avatarUrl?: string | null }>;
   selectedBarberId?: string;
   selectedDate?: string;
   slots: Slot[];

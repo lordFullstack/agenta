@@ -113,7 +113,7 @@ export class BusinessService {
   async getTenantProfile(tenantId: string, callerTenantId: string) {
     if (tenantId !== callerTenantId) throw new TenantMismatchError();
     const { rows } = await this.pool.query(
-      `SELECT id, trade_name, description, timezone FROM tenants WHERE id = $1`,
+      `SELECT id, trade_name, description, timezone, logo_url, cover_url FROM tenants WHERE id = $1`,
       [tenantId]
     );
     if (rows.length === 0) throw new TenantMismatchError();
@@ -149,6 +149,24 @@ export class BusinessService {
        WHERE id = $1
        RETURNING id, trade_name, description, timezone`,
       [tenantId, updates.tradeName ?? null, updates.description ?? null, updates.timezone ?? null]
+    );
+    return rows[0];
+  }
+
+  async setTenantLogo(tenantId: string, callerTenantId: string, url: string) {
+    if (tenantId !== callerTenantId) throw new TenantMismatchError();
+    const { rows } = await this.pool.query(
+      `UPDATE tenants SET logo_url = $2 WHERE id = $1 RETURNING id, logo_url`,
+      [tenantId, url]
+    );
+    return rows[0];
+  }
+
+  async setTenantCover(tenantId: string, callerTenantId: string, url: string) {
+    if (tenantId !== callerTenantId) throw new TenantMismatchError();
+    const { rows } = await this.pool.query(
+      `UPDATE tenants SET cover_url = $2 WHERE id = $1 RETURNING id, cover_url`,
+      [tenantId, url]
     );
     return rows[0];
   }

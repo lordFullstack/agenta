@@ -5,6 +5,8 @@ import { TokenService } from "./auth/token.service";
 import { authenticate, requireRole } from "./auth/middleware";
 import { loginLimiter } from "./rate-limit.middleware";
 import { validateUuidParams } from "./validate-params.middleware";
+import { uploadImage } from "./upload.middleware";
+import { uploadPublicFile } from "./storage.service";
 
 export function buildBusinessRoutes(business: BusinessService, tokens: TokenService): Router {
   const router = Router();
@@ -81,6 +83,51 @@ export function buildBusinessRoutes(business: BusinessService, tokens: TokenServ
       throw err;
     }
   });
+
+  // ── Logo y portada — multipart/form-data, campo "file" ──
+  router.put(
+    "/v1/tenants/:tenantId/logo",
+    requireAuth,
+    requireOwnerOrAdmin,
+    validateUuidParams("tenantId"),
+    uploadImage,
+    async (req: Request, res: Response) => {
+      if (req.user!.tenantId !== req.params.tenantId) {
+        return res.status(403).json({ error: "forbidden", message: "No podés editar una barbería que no es la tuya." });
+      }
+      if (!req.file) return res.status(400).json({ error: "missing_file" });
+      try {
+        const url = await uploadPublicFile("logos", req.file);
+        const tenant = await business.setTenantLogo(req.params.tenantId, req.user!.tenantId!, url);
+        res.status(200).json({ tenant });
+      } catch (err) {
+        if (err instanceof TenantMismatchError) return res.status(403).json({ error: "forbidden", message: err.message });
+        throw err;
+      }
+    }
+  );
+
+  router.put(
+    "/v1/tenants/:tenantId/cover",
+    requireAuth,
+    requireOwnerOrAdmin,
+    validateUuidParams("tenantId"),
+    uploadImage,
+    async (req: Request, res: Response) => {
+      if (req.user!.tenantId !== req.params.tenantId) {
+        return res.status(403).json({ error: "forbidden", message: "No podés editar una barbería que no es la tuya." });
+      }
+      if (!req.file) return res.status(400).json({ error: "missing_file" });
+      try {
+        const url = await uploadPublicFile("covers", req.file);
+        const tenant = await business.setTenantCover(req.params.tenantId, req.user!.tenantId!, url);
+        res.status(200).json({ tenant });
+      } catch (err) {
+        if (err instanceof TenantMismatchError) return res.status(403).json({ error: "forbidden", message: err.message });
+        throw err;
+      }
+    }
+  );
 
   // ── Horario general de la sucursal — lectura pública, escritura protegida ──
   router.get("/v1/branches/:branchId/business-hours", validateUuidParams("branchId"), async (req: Request, res: Response) => {

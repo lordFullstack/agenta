@@ -51,7 +51,7 @@ export class CatalogManagementService {
   async listStaff(tenantId: string) {
     const { rows } = await this.pool.query(
       `SELECT sm.id, sm.branch_id, sm.status, sm.buffer_before_minutes, sm.buffer_after_minutes,
-              sm.accepts_walk_ins, u.full_name, u.phone
+              sm.accepts_walk_ins, u.full_name, u.phone, u.avatar_url
        FROM staff_members sm
        JOIN users u ON u.id = sm.user_id
        WHERE sm.tenant_id = $1 AND sm.deleted_at IS NULL
@@ -168,6 +168,22 @@ export class CatalogManagementService {
         [staffId, tenantId, updates.bio ?? null, updates.status ?? null, updates.bufferBeforeMinutes ?? null, updates.bufferAfterMinutes ?? null, updates.acceptsWalkIns ?? null]
       );
       if (rows.length === 0) throw new TenantMismatchError("barbero");
+      return rows[0];
+    });
+  }
+
+  async setStaffPhoto(tenantId: string, staffId: string, url: string) {
+    return withTenantContext(this.pool, tenantId, async (client) => {
+      const { rows: staffRows } = await client.query(
+        `SELECT user_id FROM staff_members WHERE id = $1 AND tenant_id = $2`,
+        [staffId, tenantId]
+      );
+      if (staffRows.length === 0) throw new TenantMismatchError("barbero");
+
+      const { rows } = await client.query(
+        `UPDATE users SET avatar_url = $2 WHERE id = $1 RETURNING id, avatar_url`,
+        [staffRows[0].user_id, url]
+      );
       return rows[0];
     });
   }

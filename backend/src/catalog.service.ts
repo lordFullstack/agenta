@@ -8,6 +8,10 @@ export interface BarbershopProfile {
   slug: string;
   timezone: string;
   branchId: string;
+  logoUrl: string | null;
+  coverUrl: string | null;
+  address: string | null;
+  completedAppointments: number;
 }
 
 export interface ServiceOption {
@@ -38,7 +42,9 @@ export class CatalogService {
   async getBarbershopBySlug(rawSlug: string): Promise<BarbershopProfile | null> {
     const slug = slugify(rawSlug);
     const { rows } = await this.pool.query(
-      `SELECT t.id, t.trade_name, t.slug, t.timezone, b.id AS branch_id
+      `SELECT t.id, t.trade_name, t.slug, t.timezone, t.logo_url, t.cover_url,
+              b.id AS branch_id, b.address,
+              (SELECT count(*) FROM appointments a WHERE a.tenant_id = t.id AND a.status = 'completed') AS completed_appointments
        FROM tenants t
        JOIN branches b ON b.tenant_id = t.id AND b.is_active
        WHERE t.slug = $1 AND t.is_active AND t.deleted_at IS NULL
@@ -47,7 +53,17 @@ export class CatalogService {
     );
     if (rows.length === 0) return null;
     const r = rows[0];
-    return { id: r.id, tradeName: r.trade_name, slug: r.slug, timezone: r.timezone, branchId: r.branch_id };
+    return {
+      id: r.id,
+      tradeName: r.trade_name,
+      slug: r.slug,
+      timezone: r.timezone,
+      branchId: r.branch_id,
+      logoUrl: r.logo_url,
+      coverUrl: r.cover_url,
+      address: r.address,
+      completedAppointments: Number(r.completed_appointments),
+    };
   }
 
   /** Paso 2: servicios activos de la barbería. */

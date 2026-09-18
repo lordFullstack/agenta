@@ -210,10 +210,28 @@ export class BarbershopApiClient {
     return parseJson(res);
   }
 
+  /** Como authJson, pero para multipart/form-data — nunca fijar Content-Type acá,
+   * el browser arma el boundary solo. */
+  private async authUpload(method: string, path: string, file: File) {
+    const form = new FormData();
+    form.append("file", file);
+    const res = await withRetry(() => this.authFetch(`${this.baseUrl}${path}`, { method, body: form }));
+    return parseJson(res);
+  }
+
   // ── Negocio (Loop 07) ──
   /** Sucursal principal del caller — evita que el owner tenga que saber/escribir su branchId. */
   getMyBranch(): Promise<{ branch: { id: string; name: string } }> {
     return this.authJson("GET", "/v1/admin/my-branch");
+  }
+  uploadTenantLogo(tenantId: string, file: File) {
+    return this.authUpload("PUT", `/v1/tenants/${tenantId}/logo`, file);
+  }
+  uploadTenantCover(tenantId: string, file: File) {
+    return this.authUpload("PUT", `/v1/tenants/${tenantId}/cover`, file);
+  }
+  uploadStaffPhoto(staffId: string, file: File) {
+    return this.authUpload("PUT", `/v1/admin/staff/${staffId}/photo`, file);
   }
   getTenantProfile(tenantId: string) {
     return this.authJson("GET", `/v1/tenants/${tenantId}`);

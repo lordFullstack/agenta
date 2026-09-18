@@ -10,6 +10,8 @@ import {
 import { TokenService } from "./auth/token.service";
 import { authenticate, requireRole } from "./auth/middleware";
 import { validateUuidParams } from "./validate-params.middleware";
+import { uploadImage } from "./upload.middleware";
+import { uploadPublicFile } from "./storage.service";
 
 export function buildCatalogManagementRoutes(mgmt: CatalogManagementService, tokens: TokenService): Router {
   const router = Router();
@@ -127,6 +129,26 @@ export function buildCatalogManagementRoutes(mgmt: CatalogManagementService, tok
       handleDomainError(err, res);
     }
   });
+
+  router.put(
+    "/v1/admin/staff/:staffId/photo",
+    requireAuth,
+    requireOwnerOrAdmin,
+    validateUuidParams("staffId"),
+    uploadImage,
+    async (req: Request, res: Response) => {
+      const tenantId = tenantIdOf(req);
+      if (!tenantId) return res.status(403).json({ error: "forbidden" });
+      if (!req.file) return res.status(400).json({ error: "missing_file" });
+      try {
+        const url = await uploadPublicFile("staff", req.file);
+        const user = await mgmt.setStaffPhoto(tenantId, req.params.staffId, url);
+        res.status(200).json({ user });
+      } catch (err) {
+        handleDomainError(err, res);
+      }
+    }
+  );
 
   // ── Asignación de servicios ──
   router.put(

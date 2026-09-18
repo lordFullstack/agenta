@@ -56,6 +56,7 @@ export function BarbershopApp({ branchId }: { branchId: string }) {
                 onInvite={app.inviteStaff}
                 onToggleStatus={app.toggleStaffStatus}
                 onAssignService={app.assignService}
+                onUploadPhoto={app.uploadStaffPhoto}
                 getStaffServices={app.getStaffServices}
               />
             )}
@@ -68,6 +69,8 @@ export function BarbershopApp({ branchId }: { branchId: string }) {
                 saved={app.settingsSaved}
                 onSaveProfile={app.saveTenantProfile}
                 onSaveHours={app.saveBusinessHours}
+                onUploadLogo={app.uploadLogo}
+                onUploadCover={app.uploadCover}
               />
             )}
           </main>
@@ -503,6 +506,7 @@ function StaffScreen({
   onInvite,
   onToggleStatus,
   onAssignService,
+  onUploadPhoto,
   getStaffServices,
 }: {
   staff: any[];
@@ -512,6 +516,7 @@ function StaffScreen({
   onInvite: (input: any) => Promise<boolean>;
   onToggleStatus: (staffId: string, currentStatus: string) => void;
   onAssignService: (staffId: string, serviceId: string) => void;
+  onUploadPhoto: (staffId: string, file: File) => void;
   getStaffServices: (staffId: string) => Promise<{ services: any[] }>;
 }) {
   const [showForm, setShowForm] = useState(false);
@@ -577,12 +582,23 @@ function StaffScreen({
           {staff.map((s) => (
             <div key={s.id} className="bg-bone text-ink rounded-card shadow-card p-4">
               <div className="flex items-center justify-between">
-                <div>
-                  <p className="font-medium">{s.full_name}</p>
-                  <p className="text-steel text-xs">{s.phone}</p>
-                  <span className={`inline-block mt-1 px-2 py-0.5 rounded-pill text-[10px] font-medium ${s.status === "active" ? "bg-brass/15 text-brass" : "bg-steel/15 text-steel"}`}>
-                    {s.status === "active" ? "Activo" : "Pausado"}
-                  </span>
+                <div className="flex items-center gap-3">
+                  <label className="relative w-12 h-12 rounded-pill bg-steel/10 overflow-hidden flex-shrink-0 cursor-pointer">
+                    {s.avatar_url && <img src={s.avatar_url} alt={s.full_name} className="w-full h-full object-cover" />}
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      onChange={(e) => e.target.files?.[0] && onUploadPhoto(s.id, e.target.files[0])}
+                      className="absolute inset-0 opacity-0 cursor-pointer"
+                    />
+                  </label>
+                  <div>
+                    <p className="font-medium">{s.full_name}</p>
+                    <p className="text-steel text-xs">{s.phone}</p>
+                    <span className={`inline-block mt-1 px-2 py-0.5 rounded-pill text-[10px] font-medium ${s.status === "active" ? "bg-brass/15 text-brass" : "bg-steel/15 text-steel"}`}>
+                      {s.status === "active" ? "Activo" : "Pausado"}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex gap-2">
                   <button onClick={() => expand(s.id)} className="text-xs border border-steel/30 px-3 py-2 rounded-full">Servicios</button>
@@ -635,6 +651,8 @@ function SettingsScreen({
   saved,
   onSaveProfile,
   onSaveHours,
+  onUploadLogo,
+  onUploadCover,
 }: {
   tenant: any;
   businessHours: any[];
@@ -643,6 +661,8 @@ function SettingsScreen({
   saved: boolean;
   onSaveProfile: (updates: any) => void;
   onSaveHours: (hours: any[]) => void;
+  onUploadLogo: (file: File) => void;
+  onUploadCover: (file: File) => void;
 }) {
   const [tradeName, setTradeName] = useState(tenant?.trade_name ?? "");
   const [opensAt, setOpensAt] = useState("09:00");
@@ -660,6 +680,36 @@ function SettingsScreen({
       {loading && <p className="text-steel text-sm">Cargando…</p>}
       {error && <p className="text-ember text-sm mb-4">{error}</p>}
       {saved && <p className="text-brass text-sm mb-4">Cambios guardados.</p>}
+
+      <section className="bg-bone text-ink rounded-card p-4 mb-6">
+        <h2 className="font-display text-lg font-semibold mb-3">Imagen</h2>
+        <div className="flex items-center gap-4 mb-4">
+          <div className="w-16 h-16 rounded-pill bg-steel/10 overflow-hidden flex-shrink-0">
+            {tenant?.logo_url && <img src={tenant.logo_url} alt="Logo" className="w-full h-full object-cover" />}
+          </div>
+          <div>
+            <label className="block text-xs text-steel mb-1">Logo (foto cuadrada)</label>
+            <input
+              type="file"
+              accept="image/png,image/jpeg,image/webp"
+              onChange={(e) => e.target.files?.[0] && onUploadLogo(e.target.files[0])}
+              className="text-xs"
+            />
+          </div>
+        </div>
+        <div className="mb-1">
+          <div className="w-full h-24 rounded-card bg-steel/10 overflow-hidden mb-2">
+            {tenant?.cover_url && <img src={tenant.cover_url} alt="Portada" className="w-full h-full object-cover" />}
+          </div>
+          <label className="block text-xs text-steel mb-1">Portada (foto ancha)</label>
+          <input
+            type="file"
+            accept="image/png,image/jpeg,image/webp"
+            onChange={(e) => e.target.files?.[0] && onUploadCover(e.target.files[0])}
+            className="text-xs"
+          />
+        </div>
+      </section>
 
       <section className="bg-bone text-ink rounded-card p-4 mb-6">
         <h2 className="font-display text-lg font-semibold mb-3">Perfil</h2>
