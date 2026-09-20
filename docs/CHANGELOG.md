@@ -21,6 +21,10 @@ DESCRIPTION:
 - Tests nuevos: `platform.test.ts`, `platform.routes.test.ts` (401/403/400 y subida real con multer)
   y 3 en el cliente de API del panel.
 - El horario general de Configuración ahora muestra el nombre del día en vez de la clave (mon → Lunes).
+- Nueva pantalla `/admin`: login aparte (mismo usuario/contraseña de siempre) que muestra solo "Fondos de
+  Agenta", sin depender de ninguna barbería. Si la cuenta no está en `PLATFORM_ADMIN_PHONES` avisa y no
+  deja subir nada (el backend igual responde 403). El componente `PlatformBackgrounds` se movió a
+  `components/` y lo comparten `/admin` y Configuración. Sin cambios de backend.
 
 ---
 

@@ -2,7 +2,7 @@ FOTOS DE FONDO DEL DISEÑO (opcionales)
 ======================================
 Lo normal es subirlas desde la app: entra al panel con la cuenta de administrador de la
 plataforma (la del teléfono que pusiste en PLATFORM_ADMIN_PHONES) → Configuración →
-"Fondos de Agenta". Lo que subas ahí tiene prioridad sobre estos archivos.
+"Fondos de Agenta" o desde la pantalla /admin. Lo que subas ahí tiene prioridad sobre estos archivos.
 
 Estos archivos son solo el respaldo por defecto (lo que se ve mientras no hayas subido nada).
 Si los quieres, suéltalos aquí con estos nombres exactos:

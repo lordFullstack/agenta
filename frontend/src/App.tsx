@@ -3,6 +3,7 @@ import { Routes, Route, useNavigate, useParams } from "react-router-dom";
 import { BookingFlow } from "./components/BookingFlow";
 import { BarbershopApp, RegisterBarbershopScreen, LoginScreen, loginAndGetBranchId } from "./barbershop/components/BarbershopApp";
 import { LandingScreen, SearchScreen, MyAppointmentsScreen, ProfileScreen } from "./screens/ClientScreens";
+import { AdminScreen } from "./screens/AdminScreen";
 import { Screen, GoldButton } from "./components/ui";
 
 export default function App() {
@@ -13,6 +14,7 @@ export default function App() {
       <Route path="/mis-citas" element={<MyAppointmentsScreen />} />
       <Route path="/perfil" element={<ProfileScreen />} />
       <Route path="/b/:slug" element={<BookingFlowRoute />} />
+      <Route path="/admin" element={<AdminScreen />} />
       <Route path="/negocio/registro" element={<RegisterRoute />} />
       <Route path="/negocio/entrar" element={<LoginRoute />} />
       <Route path="/negocio/:branchId" element={<BarbershopAppRoute />} />
