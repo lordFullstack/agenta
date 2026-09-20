@@ -5,6 +5,26 @@ Numeración de LOOP = canónica oficial (ver `ROADMAP.md`).
 
 ---
 
+DATE: Rediseño cliente
+LOOP: Rediseño visual del flujo del cliente según el mockup "Agenta Barber Booking"
+TYPE: UI / FRONTEND (sin cambios de backend ni de API)
+DESCRIPTION: Se rediseñó todo el lado cliente con el tema oscuro + dorado del mockup
+(10 pantallas: landing, búsqueda, perfil de barbería, servicios, barbero, fecha y hora,
+resumen, OTP, cita confirmada, mis citas). El panel de la barbería NO se tocó.
+- Fecha y horario ahora son UNA sola pantalla (antes eran dos pasos).
+- El resumen va antes del OTP; el OTP es pantalla completa (6 casillas + reenvío con
+  cuenta regresiva) y, al verificarse, la reserva se confirma sola.
+- Nuevas rutas: `/buscar`, `/mis-citas`, `/perfil`. "Mis citas" lee de localStorage
+  (`src/lib/myAppointments.ts`) porque el backend aún no lista las citas del cliente.
+- Se agregó el paso `profile` al hook `useBookingFlow`, más `goBack`, `startBooking` y
+  `slotsLoading`. Cambiar de servicio o barbero limpia fecha/horario elegidos (antes
+  quedaban de la selección anterior). La respuesta de disponibilidad más vieja ya no
+  pisa a la más nueva si el cliente toca varios días rápido.
+- El total mostrado usa el precio del barbero (con override) y no la suma del precio base.
+- Pendiente de backend (no hay datos hoy): calificaciones/reseñas, distancia, etiquetas,
+  horario de atención, búsqueda por ciudad, endpoint de "mis citas".
+- Fotos de fondo opcionales en `frontend/public/img/` (ver LEEME.txt en esa carpeta).
+
 DATE: Checkpoint actual
 LOOP: Verificación real (post Loop 16) — el hallazgo más importante del cierre
 TYPE: FIX (CRITICAL) / PROCESO

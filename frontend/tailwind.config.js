@@ -16,6 +16,15 @@ export default {
         brass: { DEFAULT: "#F5B93F", light: "#FACD6E", dark: "#C49432" },
         ember: { DEFAULT: "#B5502E", light: "#D97757" },
         moss: { DEFAULT: "#5C7A5E", light: "#7A9A7C" },
+        // Tema del cliente (mockup "Agenta Barber Booking"): oscuro azulado + dorado.
+        // Se agregan como tokens aparte para no alterar el panel de la barbería, que
+        // sigue usando ink/bone/steel/brass.
+        night: { DEFAULT: "#09121B", deep: "#060D14" },
+        panel: { DEFAULT: "#0D1822", raised: "#122130" },
+        edge: { DEFAULT: "#1E2E3D", strong: "#2C4054" },
+        gold: { DEFAULT: "#E8B357", light: "#F2C877", dark: "#B98A35" },
+        snow: "#F4F1EA",
+        fog: "#93A1AF",
       },
       spacing: {
         18: "4.5rem",
@@ -34,6 +43,8 @@ export default {
         card: "0 4px 16px -4px rgba(20,22,26,0.18)",
         float: "0 8px 24px -6px rgba(20,22,26,0.28)",
         brass: "0 0 0 3px rgba(245,185,63,0.35)",
+        "gold-ring": "0 0 0 3px rgba(232,179,87,0.18)",
+        "gold-glow": "0 8px 24px -8px rgba(232,179,87,0.45)",
       },
       keyframes: {
         shimmer: {

@@ -2,6 +2,12 @@
 @tailwind components;
 @tailwind utilities;
 
+html,
+body {
+  background: #09121b; /* evita el destello claro al hacer overscroll en el celular */
+  -webkit-tap-highlight-color: transparent;
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }

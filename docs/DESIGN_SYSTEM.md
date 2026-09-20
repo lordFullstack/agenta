@@ -443,3 +443,23 @@ screens: {
 ---
 
 *Este Design System es la base visual para Loop 5 (Setup del Proyecto) y Loop 6 (Desarrollo por Módulos). Todos los componentes de código de acá en adelante deben derivar sus clases de estos tokens — no introducir colores, radios o sombras fuera de esta paleta.*
+
+---
+
+## Tema del cliente (rediseño "Agenta Barber Booking")
+
+El lado **cliente** usa una paleta propia, tomada del mockup; el **panel de la barbería**
+sigue con `ink / bone / steel / brass`. Los tokens nuevos viven en `tailwind.config.js`:
+
+| Token | Valor | Uso |
+|---|---|---|
+| `night` / `night-deep` | `#09121B` / `#060D14` | Fondo de pantalla |
+| `panel` / `panel-raised` | `#0D1822` / `#122130` | Tarjetas / tarjeta seleccionada |
+| `edge` / `edge-strong` | `#1E2E3D` / `#2C4054` | Bordes finos |
+| `gold` (`light`, `dark`) | `#E8B357` | Botón principal, selección, precios, íconos |
+| `snow` / `fog` | `#F4F1EA` / `#93A1AF` | Texto principal / secundario |
+
+Reglas: botón principal = pastilla dorada (`GoldButton`), secundario = borde (`GhostButton`);
+selección = borde dorado + check dorado (`SelectMark`); textos en tuteo ("Selecciona", "Reserva").
+Piezas compartidas en `src/components/ui.tsx`. Fondos con foto: `photoBackground()` apila la
+imagen sobre un degradado, así que sin foto se ve el degradado (archivos en `public/img/`).

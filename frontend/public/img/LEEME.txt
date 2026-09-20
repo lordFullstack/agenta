@@ -1,0 +1,13 @@
+FOTOS DE FONDO DEL DISEÑO (opcionales)
+======================================
+Suelta aquí las imágenes con estos nombres exactos y la app las usa sola,
+sin tocar código. Mientras no existan se ve un degradado oscuro con brillo dorado.
+
+hero.jpg            Pantalla de inicio (01). Foto vertical del barbero de perfil, fondo oscuro.
+                    Ideal: 1080 x 1920 px, el sujeto en la mitad superior (abajo va el texto).
+search-bg.jpg       Pantalla de búsqueda (02). Silla de barbero / interior oscuro.
+                    Ideal: 1080 x 1400 px. Se funde hacia negro por arriba.
+cover-default.jpg   Portada por defecto del perfil de barbería (03) cuando la barbería
+                    no subió su propia portada. Ideal: 1200 x 700 px.
+
+Consejos: usa JPG optimizado (menos de 300 KB cada una) para que la app cargue rápido.

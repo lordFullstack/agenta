@@ -255,3 +255,30 @@ export function IconCopy({ className }: IconProps) {
     </svg>
   );
 }
+
+export function IconSearch({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="m16 16 4.2 4.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconUser({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <circle cx="12" cy="8.5" r="3.6" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M5 20c.6-3.6 3.3-5.6 7-5.6s6.4 2 7 5.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconShare({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path d="M12 15V4m0 0L8 8m4-4 4 4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6 11.5v6.2A2.3 2.3 0 0 0 8.3 20h7.4a2.3 2.3 0 0 0 2.3-2.3v-6.2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}

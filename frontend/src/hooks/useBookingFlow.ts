@@ -4,6 +4,7 @@ import { BookingApiClient, ApiError, NetworkError, TimeoutError, NotAuthenticate
 
 export type BookingStep =
   | "barbershop"
+  | "profile"
   | "service"
   | "barber"
   | "date"
@@ -20,6 +21,7 @@ export interface BookingFlowState {
   barbershop?: {
     id: string;
     tradeName: string;
+    slug?: string;
     branchId: string;
     timezone: string;
     logoUrl?: string | null;
@@ -28,11 +30,14 @@ export interface BookingFlowState {
     completedAppointments?: number;
   };
   services: Array<{ id: string; name: string; basePrice: number; baseDurationMinutes: number }>;
+  /** Barberos de la sucursal para mostrar en el perfil (antes de elegir servicio). */
+  profileBarbers: Array<{ id: string; fullName: string; avatarUrl?: string | null }>;
   selectedServiceIds: string[];
   barbers: Array<{ id: string; fullName: string; price: number; durationMinutes: number; avatarUrl?: string | null }>;
   selectedBarberId?: string;
   selectedDate?: string;
   slots: Slot[];
+  slotsLoading: boolean;
   selectedSlot?: Slot;
   customerNote?: string;
   confirmation?: { id: string; confirmationCode: string; startsAt: string };
@@ -51,30 +56,77 @@ export function useBookingFlow(api: BookingApiClient) {
   const [state, setState] = useState<BookingFlowState>({
     step: "barbershop",
     services: [],
+    profileBarbers: [],
     selectedServiceIds: [],
     barbers: [],
     slots: [],
+    slotsLoading: false,
     authStatus: api.isAuthenticated() ? "authenticated" : "unauthenticated",
   });
 
   const idempotencyKeyRef = useRef<string | null>(null);
+  // Fecha y horarios comparten pantalla: si el cliente toca varios días rápido, solo la
+  // última respuesta de disponibilidad puede pintar los horarios.
+  const slotsRequestRef = useRef(0);
 
   const loadBarbershop = useCallback(async (slug: string) => {
     try {
       const { barbershop } = await api.getBarbershop(slug);
       const { services } = await api.getServices(barbershop.id);
-      setState((s) => ({ ...s, barbershop, services, step: "service" }));
+
+      // Barberos para la fila "Nuestros barberos" del perfil: se piden con todos los
+      // servicios y, si falla, el perfil se muestra igual sin esa fila (no bloquea la reserva).
+      let profileBarbers: BookingFlowState["profileBarbers"] = [];
+      if (services.length > 0) {
+        try {
+          const res = await api.getStaff(barbershop.branchId, services.map((sv: { id: string }) => sv.id));
+          profileBarbers = res.staff;
+        } catch {
+          profileBarbers = [];
+        }
+      }
+
+      setState((s) => ({ ...s, barbershop, services, profileBarbers, step: "profile" }));
     } catch (err) {
       setState((s) => ({ ...s, step: "error", error: toDisplayError(err) }));
     }
   }, [api]);
+
+  const startBooking = useCallback(() => {
+    setState((s) => (s.step === "profile" ? { ...s, step: "service" } : s));
+  }, []);
+
+  /** Flecha "atrás" de cada paso. Conserva todo lo elegido para no hacer repetir nada. */
+  const goBack = useCallback(() => {
+    setState((s) => {
+      const previous: Partial<Record<BookingStep, BookingStep>> = {
+        service: "profile",
+        barber: "service",
+        date: "barber",
+        slots: "barber",
+        confirm: s.selectedDate ? "slots" : "date",
+      };
+      const step = previous[s.step];
+      return step ? { ...s, step, error: undefined, authError: undefined } : s;
+    });
+  }, []);
 
   const selectServices = useCallback(
     async (serviceIds: string[]) => {
       if (!state.barbershop) return;
       try {
         const { staff } = await api.getStaff(state.barbershop.branchId, serviceIds);
-        setState((s) => ({ ...s, selectedServiceIds: serviceIds, barbers: staff, step: "barber" }));
+        setState((s) => {
+          const same = s.selectedServiceIds.length === serviceIds.length && serviceIds.every((id) => s.selectedServiceIds.includes(id));
+          return {
+            ...s,
+            selectedServiceIds: serviceIds,
+            barbers: staff,
+            step: "barber",
+            // Otros servicios → otro precio, duración y disponibilidad: se rehace desde el barbero.
+            ...(same ? {} : { selectedBarberId: undefined, selectedDate: undefined, slots: [], slotsLoading: false, selectedSlot: undefined }),
+          };
+        });
       } catch (err) {
         setState((s) => ({ ...s, step: "error", error: toDisplayError(err) }));
       }
@@ -83,13 +135,23 @@ export function useBookingFlow(api: BookingApiClient) {
   );
 
   const selectBarber = useCallback((barberId: string) => {
-    setState((s) => ({ ...s, selectedBarberId: barberId, step: "date" }));
+    setState((s) => {
+      // Si cambió de barbero, la fecha y los horarios elegidos ya no valen (eran de otro).
+      const changed = s.selectedBarberId !== barberId;
+      return {
+        ...s,
+        selectedBarberId: barberId,
+        step: changed ? "date" : s.selectedDate ? "slots" : "date",
+        ...(changed ? { selectedDate: undefined, slots: [], slotsLoading: false, selectedSlot: undefined } : {}),
+      };
+    });
   }, []);
 
   const selectDate = useCallback(
     async (date: string) => {
       if (!state.barbershop || !state.selectedBarberId) return;
-      setState((s) => ({ ...s, selectedDate: date, step: "slots", slots: [] }));
+      const requestId = ++slotsRequestRef.current;
+      setState((s) => ({ ...s, selectedDate: date, step: "slots", slots: [], slotsLoading: true, selectedSlot: undefined }));
       try {
         const { slots } = await api.getAvailability({
           tenantId: state.barbershop.id,
@@ -98,9 +160,11 @@ export function useBookingFlow(api: BookingApiClient) {
           serviceId: state.selectedServiceIds[0],
           date,
         });
-        setState((s) => ({ ...s, slots }));
+        if (requestId !== slotsRequestRef.current) return;
+        setState((s) => ({ ...s, slots, slotsLoading: false }));
       } catch (err) {
-        setState((s) => ({ ...s, step: "error", error: toDisplayError(err) }));
+        if (requestId !== slotsRequestRef.current) return;
+        setState((s) => ({ ...s, slotsLoading: false, step: "error", error: toDisplayError(err) }));
       }
     },
     [api, state.barbershop, state.selectedBarberId, state.selectedServiceIds]
@@ -205,6 +269,8 @@ export function useBookingFlow(api: BookingApiClient) {
   return {
     state,
     loadBarbershop,
+    startBooking,
+    goBack,
     selectServices,
     selectBarber,
     selectDate,
