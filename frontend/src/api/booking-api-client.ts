@@ -219,6 +219,12 @@ export class BookingApiClient {
     return parseJsonResponse(res);
   }
 
+  /** Horario general de la sucursal (público) — se muestra en el perfil y alimenta "Abierto ahora". */
+  async getBusinessHours(branchId: string) {
+    const res = await withRetry(() => fetchWithTimeout(`${this.baseUrl}/v1/branches/${branchId}/business-hours`));
+    return parseJsonResponse(res);
+  }
+
   async getStaff(branchId: string, serviceIds: string[]) {
     const qs = new URLSearchParams({ service_ids: serviceIds.join(",") });
     const res = await withRetry(() => fetchWithTimeout(`${this.baseUrl}/v1/branches/${branchId}/staff?${qs}`));

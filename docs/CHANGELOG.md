@@ -5,6 +5,29 @@ Numeración de LOOP = canónica oficial (ver `ROADMAP.md`).
 
 ---
 
+DATE: Perfil
+LOOP: Perfil de la barbería más completo (dirección con "Cómo llegar", horario, redes)
+TYPE: FEATURE (backend + frontend) / UI
+DESCRIPTION:
+- Perfil público del cliente: ahora muestra "Sobre nosotros", Ubicación con botón "Cómo llegar"
+  (abre Google Maps con la ruta hasta la dirección, sin API key: `maps/dir/?api=1&destination=`),
+  "Horario de atención" (lunes a domingo, hoy resaltado) con estado "Abierto ahora · cierra 8:00 p.m." /
+  "Cerrado · abre mañana 9:00 a.m." calculado en la zona horaria de la BARBERÍA, y enlaces a
+  Instagram y Facebook. Cada bloque aparece solo si la barbería cargó ese dato.
+- Panel → Configuración → "Contacto y ubicación": dirección, descripción (máx. 500), Instagram y
+  Facebook; con "Probar cómo llegar en Google Maps". El horario general del panel ahora se ve como
+  "9:00 a.m. – 8:00 p.m." en vez de "09:00:00".
+- Backend: migración 025 (`tenants.instagram_url`, `tenants.facebook_url`). `PUT /v1/tenants/:id`
+  acepta `address` (se guarda en la sucursal principal), `instagram`, `facebook` y `description`;
+  todo se valida antes de escribir (`profile-links.ts`) y devuelve 422 `invalid_profile` con un mensaje
+  legible. Las redes se guardan como URL canónica de instagram.com / facebook.com: nunca una URL
+  arbitraria. `GET /v1/barbershops/:slug` ahora devuelve `description`, `instagramUrl`, `facebookUrl`.
+  `GET /v1/tenants/:id` devuelve además `address`. `undefined` = no tocar; `""` = borrar.
+- Tests: `profile-links.test.ts`, `business.routes.profile.test.ts` (HTTP: 200/422/403/401),
+  casos nuevos en `business.test.ts`, `hours-links.test.ts` y 3 en los clientes de API del frontend.
+
+---
+
 DATE: Fotos
 LOOP: Fotos de fondo y reorganización de las imágenes de cada barbería
 TYPE: FEATURE (backend + frontend) / UI

@@ -1,6 +1,7 @@
 // frontend/src/hooks/useBookingFlow.ts
 import { useCallback, useRef, useState } from "react";
 import { BookingApiClient, ApiError, NetworkError, TimeoutError, NotAuthenticatedError, Slot } from "../api/booking-api-client";
+import { BusinessHourRow } from "../lib/hours";
 
 export type BookingStep =
   | "barbershop"
@@ -27,8 +28,13 @@ export interface BookingFlowState {
     logoUrl?: string | null;
     coverUrl?: string | null;
     address?: string | null;
+    description?: string | null;
+    instagramUrl?: string | null;
+    facebookUrl?: string | null;
     completedAppointments?: number;
   };
+  /** Horario general de la sucursal, para el perfil. Vacío si todavía no lo cargaron. */
+  businessHours: BusinessHourRow[];
   services: Array<{ id: string; name: string; basePrice: number; baseDurationMinutes: number }>;
   /** Barberos de la sucursal para mostrar en el perfil (antes de elegir servicio). */
   profileBarbers: Array<{ id: string; fullName: string; avatarUrl?: string | null }>;
@@ -57,6 +63,7 @@ export function useBookingFlow(api: BookingApiClient) {
     step: "barbershop",
     services: [],
     profileBarbers: [],
+    businessHours: [],
     selectedServiceIds: [],
     barbers: [],
     slots: [],
@@ -86,7 +93,15 @@ export function useBookingFlow(api: BookingApiClient) {
         }
       }
 
-      setState((s) => ({ ...s, barbershop, services, profileBarbers, step: "profile" }));
+      // Horario para el perfil: igual que los barberos, si falla el perfil se muestra sin él.
+      let businessHours: BusinessHourRow[] = [];
+      try {
+        businessHours = (await api.getBusinessHours(barbershop.branchId)).businessHours ?? [];
+      } catch {
+        businessHours = [];
+      }
+
+      setState((s) => ({ ...s, barbershop, services, profileBarbers, businessHours, step: "profile" }));
     } catch (err) {
       setState((s) => ({ ...s, step: "error", error: toDisplayError(err) }));
     }

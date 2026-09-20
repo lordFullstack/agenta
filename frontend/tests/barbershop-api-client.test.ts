@@ -175,3 +175,31 @@ describe("BarbershopApiClient — fondos de la plataforma", () => {
     expect(options.method).toBe("DELETE");
   });
 });
+
+describe("BarbershopApiClient — contacto y ubicación", () => {
+  it("updateTenantProfile manda dirección y redes con los nombres del backend, y omite lo que no se toca", async () => {
+    const client = await loggedInClient({ sub: "u1", role: "owner", tenantId: "t1" });
+    global.fetch = jest.fn(() => Promise.resolve(jsonResponse(200, { tenant: { id: "t1" } }))) as any;
+
+    await client.updateTenantProfile("t1", { address: "Cra 8 #12-45", instagram: "@elsocio", facebook: "" });
+
+    const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe("http://test/v1/tenants/t1");
+    expect(options.method).toBe("PUT");
+    // JSON.stringify descarta los undefined: el backend recibe solo lo que se quiso cambiar.
+    expect(JSON.parse(options.body)).toEqual({ address: "Cra 8 #12-45", instagram: "@elsocio", facebook: "" });
+  });
+
+  it("un 422 (enlace inválido) llega como ApiError con el mensaje para mostrar", async () => {
+    const client = await loggedInClient({ sub: "u1", role: "owner", tenantId: "t1" });
+    global.fetch = jest.fn(() =>
+      Promise.resolve(jsonResponse(422, { error: "invalid_profile", message: "El Instagram no es válido." }))
+    ) as any;
+
+    await expect(client.updateTenantProfile("t1", { instagram: "https://evil.com" })).rejects.toMatchObject({
+      status: 422,
+      code: "invalid_profile",
+      message: "El Instagram no es válido.",
+    });
+  });
+});

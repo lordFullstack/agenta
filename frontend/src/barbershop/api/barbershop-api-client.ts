@@ -250,8 +250,19 @@ export class BarbershopApiClient {
   getTenantProfile(tenantId: string) {
     return this.authJson("GET", `/v1/tenants/${tenantId}`);
   }
-  updateTenantProfile(tenantId: string, updates: { tradeName?: string; description?: string; timezone?: string }) {
-    return this.authJson("PUT", `/v1/tenants/${tenantId}`, { trade_name: updates.tradeName, description: updates.description, timezone: updates.timezone });
+  /** Lo que no se manda no se toca. En dirección y redes, "" las borra. */
+  updateTenantProfile(
+    tenantId: string,
+    updates: { tradeName?: string; description?: string; timezone?: string; address?: string; instagram?: string; facebook?: string }
+  ) {
+    return this.authJson("PUT", `/v1/tenants/${tenantId}`, {
+      trade_name: updates.tradeName,
+      description: updates.description,
+      timezone: updates.timezone,
+      address: updates.address,
+      instagram: updates.instagram,
+      facebook: updates.facebook,
+    });
   }
   getBusinessHours(branchId: string) {
     return fetchWithTimeout(`${this.baseUrl}/v1/branches/${branchId}/business-hours`).then(parseJson);

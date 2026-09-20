@@ -1,6 +1,7 @@
 // tests/business.test.ts
 import { BusinessService, TenantMismatchError, InvalidBusinessHoursError, SlugGenerationError } from "../src/business.service";
 import { TokenService } from "../src/auth/token.service";
+import { InvalidProfileError } from "../src/profile-links";
 
 function makeMockPool(queryImpl: (sql: string, params?: any[]) => Promise<any>) {
   const client = { query: jest.fn(queryImpl), release: jest.fn() };
@@ -97,13 +98,14 @@ describe("BusinessService — getTenantProfile", () => {
 
   it("devuelve el perfil cuando el tenantId coincide", async () => {
     const { pool } = makeMockPool(async (sql: string) => {
-      if (sql.includes("SELECT id, trade_name")) return { rows: [{ id: "t1", trade_name: "El Corte" }] };
+      if (sql.includes("FROM tenants t")) return { rows: [{ id: "t1", trade_name: "El Corte", address: "Cra 8 #12-45, Montelíbano", instagram_url: null }] };
       return {};
     });
     const service = new BusinessService(pool, new TokenService(pool));
 
     const result = await service.getTenantProfile("t1", "t1");
     expect(result.trade_name).toBe("El Corte");
+    expect(result.address).toBe("Cra 8 #12-45, Montelíbano");
   });
 });
 
@@ -126,6 +128,60 @@ describe("BusinessService — updateTenantProfile (guard de tenant sin RLS)", ()
 
     const result = await service.updateTenantProfile("t1", "t1", { tradeName: "Nuevo nombre" });
     expect(result.trade_name).toBe("Nuevo nombre");
+  });
+
+  it("guarda dirección (en la sucursal principal) y redes ya normalizadas, en una sola transacción", async () => {
+    const executed: Array<{ sql: string; params?: any[] }> = [];
+    const { pool } = makeMockPool(async (sql: string, params?: any[]) => {
+      executed.push({ sql: sql.trim().split("\n")[0].trim(), params });
+      if (sql.includes("UPDATE tenants")) return { rows: [{ id: "t1", trade_name: "El Socio", instagram_url: "https://www.instagram.com/elsocio" }] };
+      return {};
+    });
+    const service = new BusinessService(pool, new TokenService(pool));
+
+    const result = await service.updateTenantProfile("t1", "t1", {
+      address: "  Cra 8 #12-45,  Montelíbano ",
+      instagram: "@elsocio",
+      facebook: "",
+    });
+
+    expect(result.address).toBe("Cra 8 #12-45, Montelíbano");
+    const tenantUpdate = executed.find((q) => q.sql.startsWith("UPDATE tenants"))!;
+    // [id, nombre, descripción, zona, ¿tocar instagram?, instagram, ¿tocar facebook?, facebook]
+    expect(tenantUpdate.params).toEqual(["t1", null, null, null, true, "https://www.instagram.com/elsocio", true, null]);
+    const branchUpdate = executed.find((q) => q.sql.startsWith("UPDATE branches"))!;
+    expect(branchUpdate.params).toEqual(["t1", "Cra 8 #12-45, Montelíbano"]);
+    expect(executed.some((q) => q.sql.startsWith("BEGIN"))).toBe(true);
+    expect(executed.some((q) => q.sql.startsWith("COMMIT"))).toBe(true);
+  });
+
+  it("si no se manda dirección ni redes, no las toca", async () => {
+    const executed: any[] = [];
+    const { pool } = makeMockPool(async (sql: string, params?: any[]) => {
+      executed.push({ sql: sql.trim().split("\n")[0].trim(), params });
+      if (sql.includes("UPDATE tenants")) return { rows: [{ id: "t1" }] };
+      return {};
+    });
+    const service = new BusinessService(pool, new TokenService(pool));
+
+    await service.updateTenantProfile("t1", "t1", { tradeName: "Otro" });
+
+    expect(executed.find((q) => q.sql.startsWith("UPDATE branches"))).toBeUndefined();
+    expect(executed.find((q) => q.sql.startsWith("UPDATE tenants")).params).toEqual(["t1", "Otro", null, null, false, null, false, null]);
+  });
+
+  it("un enlace inválido se rechaza ANTES de escribir nada", async () => {
+    const executed: string[] = [];
+    const { pool } = makeMockPool(async (sql: string) => {
+      executed.push(sql.trim().split("\n")[0].trim());
+      return { rows: [{ id: "t1" }] };
+    });
+    const service = new BusinessService(pool, new TokenService(pool));
+
+    await expect(
+      service.updateTenantProfile("t1", "t1", { address: "Calle 1", instagram: "https://evil.com/x" })
+    ).rejects.toBeInstanceOf(InvalidProfileError);
+    expect(executed).toEqual([]);
   });
 });
 

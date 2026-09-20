@@ -1,6 +1,7 @@
 // src/business.routes.ts
 import { Router, Request, Response } from "express";
 import { BusinessService, TenantMismatchError, InvalidBusinessHoursError, SlugGenerationError } from "./business.service";
+import { InvalidProfileError } from "./profile-links";
 import { TokenService } from "./auth/token.service";
 import { authenticate, requireRole } from "./auth/middleware";
 import { loginLimiter } from "./rate-limit.middleware";
@@ -76,10 +77,14 @@ export function buildBusinessRoutes(business: BusinessService, tokens: TokenServ
         tradeName: req.body.trade_name,
         description: req.body.description,
         timezone: req.body.timezone,
+        address: req.body.address,
+        instagram: req.body.instagram,
+        facebook: req.body.facebook,
       });
       res.status(200).json({ tenant });
     } catch (err) {
       if (err instanceof TenantMismatchError) return res.status(403).json({ error: "forbidden", message: err.message });
+      if (err instanceof InvalidProfileError) return res.status(422).json({ error: "invalid_profile", message: err.message });
       throw err;
     }
   });

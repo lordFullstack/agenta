@@ -12,6 +12,8 @@ import { Slot } from "../api/booking-api-client";
 import { bookingApi } from "../api/instance";
 import { saveMyAppointment } from "../lib/myAppointments";
 import { formatCOP, formatMonthYear, formatShortDate, formatTime, toIsoDate } from "../lib/format";
+import { formatClock, nowInTimezone, openStatus, weekSchedule } from "../lib/hours";
+import { directionsUrl, isSafeHttpUrl } from "../lib/links";
 import {
   IconScissors,
   IconBeard,
@@ -27,6 +29,9 @@ import {
   IconUser,
   IconShare,
   IconLock,
+  IconNavigation,
+  IconInstagram,
+  IconFacebook,
 } from "./icons";
 import { Screen, BackHeader, GoldButton, GhostButton, BottomBar, Avatar, SelectMark, photoBackground } from "./ui";
 
@@ -102,7 +107,13 @@ export function BookingFlow({ barbershopSlug }: { barbershopSlug: string }) {
       {state.step === "barbershop" && <BarbershopSkeleton />}
 
       {state.step === "profile" && state.barbershop && (
-        <ProfileStep barbershop={state.barbershop} barbers={state.profileBarbers} onBack={leaveFlow} onStart={startBooking} />
+        <ProfileStep
+          barbershop={state.barbershop}
+          barbers={state.profileBarbers}
+          businessHours={state.businessHours}
+          onBack={leaveFlow}
+          onStart={startBooking}
+        />
       )}
 
       {state.step === "service" && (
@@ -214,21 +225,38 @@ function EmptyState({
 
 // ── 03 · Perfil de la barbería ──
 
+function ProfileSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="mt-8">
+      <h2 className="font-display text-base font-medium mb-3">{title}</h2>
+      {children}
+    </section>
+  );
+}
+
 function ProfileStep({
   barbershop,
   barbers,
+  businessHours,
   onBack,
   onStart,
 }: {
   barbershop: NonNullable<BookingFlowState["barbershop"]>;
   barbers: BookingFlowState["profileBarbers"];
+  businessHours: BookingFlowState["businessHours"];
   onBack: () => void;
   onStart: () => void;
 }) {
   const [shared, setShared] = useState(false);
-  const mapsUrl = barbershop.address
-    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(barbershop.address)}`
-    : null;
+
+  const schedule = weekSchedule(businessHours);
+  const hasSchedule = schedule.some((d) => d.ranges.length > 0);
+  const status = openStatus(businessHours, barbershop.timezone);
+  const today = nowInTimezone(barbershop.timezone).day;
+  const socials = [
+    { label: "Instagram", url: barbershop.instagramUrl, Icon: IconInstagram },
+    { label: "Facebook", url: barbershop.facebookUrl, Icon: IconFacebook },
+  ].filter((n) => isSafeHttpUrl(n.url));
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -281,16 +309,11 @@ function ProfileStep({
       <div className="px-5 pt-4">
         <h1 className="font-display text-2xl font-semibold">{barbershop.tradeName}</h1>
 
-        {mapsUrl && (
-          <a
-            href={mapsUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="mt-1.5 inline-flex items-center gap-1.5 text-fog text-sm hover:text-gold-light transition-colors"
-          >
-            <IconMapPin className="w-4 h-4 text-gold" />
-            <span className="underline underline-offset-2 decoration-fog/40">{barbershop.address}</span>
-          </a>
+        {status && (
+          <p className="mt-2 inline-flex items-center gap-2 text-sm" role="status">
+            <span className={`w-2 h-2 rounded-pill ${status.open ? "bg-moss-light" : "bg-fog"}`} aria-hidden="true" />
+            <span className={status.open ? "text-moss-light" : "text-fog"}>{status.label}</span>
+          </p>
         )}
 
         {!!barbershop.completedAppointments && (
@@ -301,9 +324,14 @@ function ProfileStep({
           </div>
         )}
 
+        {barbershop.description && (
+          <ProfileSection title="Sobre nosotros">
+            <p className="text-fog text-sm leading-relaxed whitespace-pre-line">{barbershop.description}</p>
+          </ProfileSection>
+        )}
+
         {barbers.length > 0 && (
-          <section className="mt-8">
-            <h2 className="font-display text-base font-medium mb-3">Nuestros barberos</h2>
+          <ProfileSection title="Nuestros barberos">
             <div className="flex gap-5 overflow-x-auto no-scrollbar -mx-5 px-5 pb-1">
               {barbers.map((b) => (
                 <div key={b.id} className="flex flex-col items-center gap-1.5 flex-shrink-0 w-16">
@@ -312,7 +340,72 @@ function ProfileStep({
                 </div>
               ))}
             </div>
-          </section>
+          </ProfileSection>
+        )}
+
+        {barbershop.address && (
+          <ProfileSection title="Ubicación">
+            <div className="bg-panel border border-edge rounded-card p-4">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl border border-edge-strong flex items-center justify-center flex-shrink-0">
+                  <IconMapPin className="w-5 h-5 text-gold" />
+                </div>
+                <p className="text-[15px] leading-snug pt-2 min-w-0 break-words">{barbershop.address}</p>
+              </div>
+              <a
+                href={directionsUrl(barbershop.address)}
+                target="_blank"
+                rel="noreferrer"
+                className="mt-4 flex items-center justify-center gap-2 rounded-pill border border-gold/50 text-gold font-semibold text-sm py-3 hover:bg-gold/10 active:scale-[0.98] transition"
+              >
+                <IconNavigation className="w-4 h-4" />
+                Cómo llegar
+              </a>
+            </div>
+          </ProfileSection>
+        )}
+
+        {hasSchedule && (
+          <ProfileSection title="Horario de atención">
+            <div className="bg-panel border border-edge rounded-card px-4 divide-y divide-edge">
+              {schedule.map((d) => (
+                <div
+                  key={d.day}
+                  className={`flex items-start justify-between gap-4 py-2.5 text-sm ${d.day === today ? "text-gold font-medium" : ""}`}
+                >
+                  <span>{d.label}</span>
+                  <span className={`flex flex-col items-end ${d.ranges.length === 0 ? "text-fog" : ""}`}>
+                    {d.ranges.length === 0
+                      ? "Cerrado"
+                      : d.ranges.map((r, i) => (
+                          <span key={i}>
+                            {formatClock(r.opens)} – {formatClock(r.closes)}
+                          </span>
+                        ))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </ProfileSection>
+        )}
+
+        {socials.length > 0 && (
+          <ProfileSection title="Síguenos">
+            <div className="flex flex-wrap gap-3">
+              {socials.map(({ label, url, Icon }) => (
+                <a
+                  key={label}
+                  href={url as string}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="flex items-center gap-2 rounded-pill border border-edge-strong px-4 py-2.5 text-sm hover:border-gold/60 hover:text-gold-light transition-colors"
+                >
+                  <Icon className="w-[18px] h-[18px] text-gold" />
+                  {label}
+                </a>
+              ))}
+            </div>
+          </ProfileSection>
         )}
       </div>
 

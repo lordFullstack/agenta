@@ -232,17 +232,27 @@ export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
   }, [api, session, branchId]);
 
   const saveTenantProfile = useCallback(
-    async (updates: { tradeName?: string; description?: string; timezone?: string }) => {
+    async (updates: {
+      tradeName?: string;
+      description?: string;
+      timezone?: string;
+      address?: string;
+      instagram?: string;
+      facebook?: string;
+    }) => {
       if (!session?.tenantId) return;
       setSettingsSaved(false);
+      setSettingsError(undefined);
       try {
         await api.updateTenantProfile(session.tenantId, updates);
         setSettingsSaved(true);
+        // El backend normaliza (p. ej. "@usuario" → enlace): se vuelve a leer para mostrar lo guardado.
+        await loadSettings();
       } catch (err) {
         setSettingsError(err instanceof ApiError ? err.message : "No pudimos guardar los cambios.");
       }
     },
-    [api, session]
+    [api, session, loadSettings]
   );
 
   const uploadLogo = useCallback(

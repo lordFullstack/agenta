@@ -4,6 +4,7 @@ import bcrypt from "bcryptjs";
 import { TokenService, TokenPair } from "./auth/token.service";
 import { withTenantContext } from "./db/tenant-context";
 import { slugify } from "./slugify";
+import { normalizeAddress, normalizeDescription, normalizeFacebook, normalizeInstagram } from "./profile-links";
 
 export class SlugGenerationError extends Error {
   constructor() {
@@ -112,8 +113,14 @@ export class BusinessService {
    */
   async getTenantProfile(tenantId: string, callerTenantId: string) {
     if (tenantId !== callerTenantId) throw new TenantMismatchError();
+    // La dirección vive en la sucursal principal (la más antigua), no en el tenant.
     const { rows } = await this.pool.query(
-      `SELECT id, trade_name, description, timezone, logo_url, cover_url FROM tenants WHERE id = $1`,
+      `SELECT t.id, t.trade_name, t.description, t.timezone, t.logo_url, t.cover_url,
+              t.instagram_url, t.facebook_url,
+              (SELECT b.address FROM branches b
+                WHERE b.tenant_id = t.id AND b.deleted_at IS NULL
+                ORDER BY b.created_at ASC LIMIT 1) AS address
+       FROM tenants t WHERE t.id = $1`,
       [tenantId]
     );
     if (rows.length === 0) throw new TenantMismatchError();
@@ -134,23 +141,63 @@ export class BusinessService {
     return rows[0];
   }
 
+  /**
+   * `undefined` = no tocar ese campo. En dirección, Instagram y Facebook, `null` o "" lo borran.
+   * Todo se valida y normaliza ANTES de escribir: si algo es inválido no se guarda nada.
+   * La dirección se guarda en la sucursal principal; todo va en una sola transacción.
+   */
   async updateTenantProfile(
     tenantId: string,
     callerTenantId: string,
-    updates: { tradeName?: string; description?: string; timezone?: string }
+    updates: {
+      tradeName?: string;
+      description?: string;
+      timezone?: string;
+      address?: string | null;
+      instagram?: string | null;
+      facebook?: string | null;
+    }
   ) {
     if (tenantId !== callerTenantId) throw new TenantMismatchError();
 
-    const { rows } = await this.pool.query(
-      `UPDATE tenants
-       SET trade_name = COALESCE($2, trade_name),
-           description = COALESCE($3, description),
-           timezone = COALESCE($4, timezone)
-       WHERE id = $1
-       RETURNING id, trade_name, description, timezone`,
-      [tenantId, updates.tradeName ?? null, updates.description ?? null, updates.timezone ?? null]
-    );
-    return rows[0];
+    const description = updates.description !== undefined ? normalizeDescription(updates.description) : undefined;
+    const address = updates.address !== undefined ? normalizeAddress(updates.address) : undefined;
+    const instagram = updates.instagram !== undefined ? normalizeInstagram(updates.instagram) : undefined;
+    const facebook = updates.facebook !== undefined ? normalizeFacebook(updates.facebook) : undefined;
+
+    return withTenantContext(this.pool, callerTenantId, async (client) => {
+      const { rows } = await client.query(
+        `UPDATE tenants
+         SET trade_name = COALESCE($2, trade_name),
+             description = COALESCE($3, description),
+             timezone = COALESCE($4, timezone),
+             instagram_url = CASE WHEN $5::boolean THEN $6::text ELSE instagram_url END,
+             facebook_url = CASE WHEN $7::boolean THEN $8::text ELSE facebook_url END
+         WHERE id = $1
+         RETURNING id, trade_name, description, timezone, instagram_url, facebook_url`,
+        [
+          tenantId,
+          updates.tradeName ?? null,
+          description ?? null,
+          updates.timezone ?? null,
+          instagram !== undefined,
+          instagram ?? null,
+          facebook !== undefined,
+          facebook ?? null,
+        ]
+      );
+
+      if (address !== undefined) {
+        await client.query(
+          `UPDATE branches SET address = $2
+           WHERE tenant_id = $1
+             AND id = (SELECT id FROM branches WHERE tenant_id = $1 AND deleted_at IS NULL ORDER BY created_at ASC LIMIT 1)`,
+          [tenantId, address]
+        );
+      }
+
+      return address !== undefined ? { ...rows[0], address } : rows[0];
+    });
   }
 
   async setTenantLogo(tenantId: string, callerTenantId: string, url: string) {

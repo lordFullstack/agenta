@@ -230,3 +230,17 @@ describe("BookingApiClient — auth: OTP y tokens (Loop 06/11)", () => {
     expect(capturedAuthHeader).toBe("Bearer token-abc");
   });
 });
+
+describe("BookingApiClient — horario público", () => {
+  it("getBusinessHours pide el horario de la sucursal sin necesitar sesión", async () => {
+    global.fetch = jest.fn(() =>
+      Promise.resolve(jsonResponse(200, { businessHours: [{ day_of_week: "mon", opens_at: "09:00:00", closes_at: "20:00:00" }] }))
+    ) as any;
+    const client = new BookingApiClient("http://test");
+
+    const { businessHours } = await client.getBusinessHours("b1");
+
+    expect((global.fetch as jest.Mock).mock.calls[0][0]).toBe("http://test/v1/branches/b1/business-hours");
+    expect(businessHours).toHaveLength(1);
+  });
+});

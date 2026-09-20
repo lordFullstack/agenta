@@ -17,11 +17,14 @@ import {
   IconChevronLeft,
   IconChevronRight,
   IconCamera,
+  IconNavigation,
 } from "../../components/icons";
 import { Logo, Avatar, photoBackground } from "../../components/ui";
 import { ImagePicker } from "../../components/ImagePicker";
 import { PlatformBackgrounds } from "../../components/PlatformBackgrounds";
 import { formatCOP, formatTime } from "../../lib/format";
+import { directionsUrl } from "../../lib/links";
+import { formatClock } from "../../lib/hours";
 
 const api = new BarbershopApiClient((import.meta as any).env?.VITE_API_URL ?? "http://localhost:3000");
 
@@ -1037,6 +1040,13 @@ const DAYS: Array<{ key: string; label: string }> = [
   { key: "sun", label: "Domingo" },
 ];
 
+/** "https://www.instagram.com/elsocio" → "@elsocio" (así se ve más natural en el campo). */
+function instagramHandle(url?: string | null): string {
+  if (!url) return "";
+  const handle = url.replace(/\/+$/, "").split("/").pop();
+  return handle ? `@${handle}` : "";
+}
+
 function SettingsScreen({
   tenant,
   businessHours,
@@ -1071,9 +1081,17 @@ function SettingsScreen({
   const [closesAt, setClosesAt] = useState("20:00");
   const [selectedDays, setSelectedDays] = useState<string[]>(["mon", "tue", "wed", "thu", "fri", "sat"]);
   const [imageError, setImageError] = useState<string | null>(null);
+  const [address, setAddress] = useState(tenant?.address ?? "");
+  const [description, setDescription] = useState(tenant?.description ?? "");
+  const [instagram, setInstagram] = useState(instagramHandle(tenant?.instagram_url));
+  const [facebook, setFacebook] = useState(tenant?.facebook_url ?? "");
 
   React.useEffect(() => {
     if (tenant?.trade_name) setTradeName(tenant.trade_name);
+    setAddress(tenant?.address ?? "");
+    setDescription(tenant?.description ?? "");
+    setInstagram(instagramHandle(tenant?.instagram_url));
+    setFacebook(tenant?.facebook_url ?? "");
   }, [tenant]);
 
   return (
@@ -1179,6 +1197,80 @@ function SettingsScreen({
         </button>
       </section>
 
+      <section className="bg-panel border border-edge rounded-card p-5 mb-5">
+        <h2 className="font-display text-lg font-semibold">Contacto y ubicación</h2>
+        <p className="text-fog text-xs mt-1 mb-4">Es lo que ve el cliente en el perfil de tu barbería, antes de reservar.</p>
+
+        <label htmlFor="profile-address" className="block text-xs font-medium text-fog mb-1.5">Dirección</label>
+        <input
+          id="profile-address"
+          value={address}
+          maxLength={200}
+          onChange={(e) => setAddress(e.target.value)}
+          placeholder="Ej: Cra 8 #12-45, Centro, Montelíbano, Córdoba"
+          className="w-full bg-night border border-edge-strong text-snow placeholder:text-fog/70 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-gold"
+        />
+        <p className="text-[11px] text-fog mt-1.5">
+          Escríbela completa, con barrio y ciudad, como la buscarías en Google Maps. El botón «Cómo llegar» de tu perfil abre el mapa con esta dirección.
+        </p>
+        {address.trim() && (
+          <a
+            href={directionsUrl(address.trim())}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 text-xs text-gold hover:text-gold-light underline underline-offset-2 mt-2"
+          >
+            <IconNavigation className="w-3.5 h-3.5" />
+            Probar cómo llegar en Google Maps
+          </a>
+        )}
+
+        <label htmlFor="profile-description" className="block text-xs font-medium text-fog mt-5 mb-1.5">Sobre tu barbería</label>
+        <textarea
+          id="profile-description"
+          value={description}
+          maxLength={500}
+          rows={4}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Cuéntales en pocas palabras qué te hace diferente: años de experiencia, estilos, ambiente…"
+          className="w-full bg-night border border-edge-strong text-snow placeholder:text-fog/70 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-gold resize-y"
+        />
+        <p className="text-[11px] text-fog mt-1 text-right">{description.length}/500</p>
+
+        <div className="grid sm:grid-cols-2 gap-4 mt-3">
+          <div>
+            <label htmlFor="profile-instagram" className="block text-xs font-medium text-fog mb-1.5">Instagram</label>
+            <input
+              id="profile-instagram"
+              value={instagram}
+              onChange={(e) => setInstagram(e.target.value)}
+              placeholder="@tubarberia"
+              autoCapitalize="none"
+              className="w-full bg-night border border-edge-strong text-snow placeholder:text-fog/70 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-gold"
+            />
+          </div>
+          <div>
+            <label htmlFor="profile-facebook" className="block text-xs font-medium text-fog mb-1.5">Facebook</label>
+            <input
+              id="profile-facebook"
+              value={facebook}
+              onChange={(e) => setFacebook(e.target.value)}
+              placeholder="Enlace de tu página"
+              autoCapitalize="none"
+              className="w-full bg-night border border-edge-strong text-snow placeholder:text-fog/70 rounded-xl px-3.5 py-2.5 text-sm outline-none focus:border-gold"
+            />
+          </div>
+        </div>
+        <p className="text-[11px] text-fog mt-1.5">Puedes escribir @usuario o pegar el enlace. Déjalos vacíos si no tienes.</p>
+
+        <button
+          onClick={() => onSaveProfile({ address, description, instagram, facebook })}
+          className="mt-4 bg-gold text-night rounded-full px-4 py-2 text-sm font-medium hover:bg-gold-light transition-colors"
+        >
+          Guardar contacto
+        </button>
+      </section>
+
       <section className="bg-panel border border-edge rounded-card p-5">
         <h2 className="font-display text-lg font-semibold mb-4">Horario general</h2>
 
@@ -1189,7 +1281,7 @@ function SettingsScreen({
             <div className="flex flex-col gap-1">
               {businessHours.map((h: any, i: number) => (
                 <p key={i} className="text-sm text-fog font-mono">
-                  {DAYS.find((d) => d.key === h.day_of_week)?.label ?? h.day_of_week}: {h.opens_at} – {h.closes_at}
+                  {DAYS.find((d) => d.key === h.day_of_week)?.label ?? h.day_of_week}: {formatClock(h.opens_at)} – {formatClock(h.closes_at)}
                 </p>
               ))}
             </div>

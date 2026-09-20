@@ -296,3 +296,30 @@ export function IconCamera({ className }: IconProps) {
     </svg>
   );
 }
+
+export function IconNavigation({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path d="M20.5 3.5 3.8 10.6l6.6 2.9 2.9 6.6 7.2-16.6Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconInstagram({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <rect x="3.5" y="3.5" width="17" height="17" rx="5" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="12" cy="12" r="3.8" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="17.3" cy="6.7" r="1.1" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function IconFacebook({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="8.5" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M13.4 20.4v-6.5h2.2l.4-2.6h-2.6V9.8c0-.8.4-1.3 1.4-1.3H16V6.2c-.4 0-1.1-.1-2-.1-2 0-3.3 1.2-3.3 3.3v1.9H8.5v2.6h2.2v6.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}

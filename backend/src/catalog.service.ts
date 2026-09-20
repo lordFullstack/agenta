@@ -11,6 +11,9 @@ export interface BarbershopProfile {
   logoUrl: string | null;
   coverUrl: string | null;
   address: string | null;
+  description: string | null;
+  instagramUrl: string | null;
+  facebookUrl: string | null;
   completedAppointments: number;
 }
 
@@ -43,6 +46,7 @@ export class CatalogService {
     const slug = slugify(rawSlug);
     const { rows } = await this.pool.query(
       `SELECT t.id, t.trade_name, t.slug, t.timezone, t.logo_url, t.cover_url,
+              t.description, t.instagram_url, t.facebook_url,
               b.id AS branch_id, b.address,
               (SELECT count(*) FROM appointments a WHERE a.tenant_id = t.id AND a.status = 'completed') AS completed_appointments
        FROM tenants t
@@ -62,6 +66,9 @@ export class CatalogService {
       logoUrl: r.logo_url,
       coverUrl: r.cover_url,
       address: r.address,
+      description: r.description,
+      instagramUrl: r.instagram_url,
+      facebookUrl: r.facebook_url,
       completedAppointments: Number(r.completed_appointments),
     };
   }
