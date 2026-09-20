@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from "react";
 import { useBookingFlow, BookingFlowState } from "../hooks/useBookingFlow";
 import { BookingApiClient } from "../api/booking-api-client";
+import { IconScissors, IconCheck, IconAlert, IconChevronLeft } from "./icons";
 
 const api = new BookingApiClient(import.meta.env.VITE_API_URL ?? "http://localhost:3000");
 
@@ -15,7 +16,7 @@ export function BookingFlow({ barbershopSlug }: { barbershopSlug: string }) {
 
   return (
     <div className="min-h-screen bg-ink text-bone font-body pb-24">
-      {state.step === "barbershop" && <ScreenLoading label="Cargando barbería…" />}
+      {state.step === "barbershop" && <BarbershopSkeleton />}
 
       {state.step === "service" && (
         <ServiceStep barbershop={state.barbershop} services={state.services} onContinue={selectServices} />
@@ -57,6 +58,30 @@ function ScreenLoading({ label }: { label: string }) {
     <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-6">
       <div className="w-10 h-10 rounded-pill border-2 border-brass border-t-transparent animate-spin" />
       <p className="text-steel text-sm font-mono">{label}</p>
+    </div>
+  );
+}
+
+// Skeleton de la carga inicial — replica el layout real (header + lista de servicios)
+// en vez de un spinner genérico sobre pantalla en blanco.
+function BarbershopSkeleton() {
+  const shimmer = "bg-gradient-to-r from-steel/[0.08] via-steel/[0.18] to-steel/[0.08] bg-[length:200%_100%] animate-shimmer";
+  return (
+    <div className="pt-6">
+      <div className="mb-4">
+        <div className={`h-36 ${shimmer}`} />
+        <div className="pt-11 px-5">
+          <div className={`h-6 w-40 rounded ${shimmer}`} />
+        </div>
+      </div>
+      <div className="px-4">
+        <div className={`h-7 w-48 rounded mb-4 ${shimmer}`} />
+        <div className="space-y-2">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className={`h-16 rounded-card ${shimmer}`} />
+          ))}
+        </div>
+      </div>
     </div>
   );
 }
@@ -131,21 +156,30 @@ function ServiceStep({
         <EmptyState title="Sin servicios disponibles" subtitle="Esta barbería aún no cargó su catálogo." />
       ) : (
         <div className="space-y-2">
-          {services.map((s) => (
-            <button
-              key={s.id}
-              onClick={() => toggle(s.id)}
-              aria-selected={selected.includes(s.id)}
-              className="w-full flex items-center justify-between bg-bone text-ink rounded-card shadow-card p-4
-                aria-selected:ring-2 aria-selected:ring-brass active:scale-[0.98] transition-transform"
-            >
-              <div className="text-left">
-                <p className="font-medium">{s.name}</p>
-                <p className="text-steel text-xs font-mono">{s.baseDurationMinutes} min</p>
-              </div>
-              <p className="font-mono tabular-nums">${s.basePrice}</p>
-            </button>
-          ))}
+          {services.map((s) => {
+            const isSelected = selected.includes(s.id);
+            return (
+              <button
+                key={s.id}
+                onClick={() => toggle(s.id)}
+                aria-selected={isSelected}
+                className="w-full flex items-center gap-3 bg-bone text-ink rounded-card shadow-card p-4 border-2 border-transparent
+                  aria-selected:border-brass aria-selected:shadow-brass hover:shadow-float active:scale-[0.98] transition-all"
+              >
+                <div
+                  className="w-9 h-9 rounded-pill flex items-center justify-center flex-shrink-0 transition-colors"
+                  style={{ background: isSelected ? "rgba(245,185,63,0.18)" : "rgba(91,97,105,0.1)" }}
+                >
+                  <IconScissors className={`w-4 h-4 ${isSelected ? "text-brass-dark" : "text-steel"}`} />
+                </div>
+                <div className="text-left flex-1">
+                  <p className="font-medium">{s.name}</p>
+                  <p className="text-steel text-xs font-mono">{s.baseDurationMinutes} min</p>
+                </div>
+                <p className="font-mono tabular-nums font-medium">${s.basePrice}</p>
+              </button>
+            );
+          })}
         </div>
       )}
       </div>
@@ -157,7 +191,8 @@ function ServiceStep({
         <button
           disabled={selected.length === 0}
           onClick={() => onContinue(selected)}
-          className="w-full bg-brass text-ink font-semibold rounded-full py-4 disabled:opacity-40 active:scale-95 transition-all"
+          className="w-full bg-brass text-ink font-semibold rounded-full py-4 disabled:opacity-40
+            hover:enabled:bg-brass-light active:scale-95 transition-all"
         >
           Continuar
         </button>
@@ -181,7 +216,7 @@ function BarberStep({ barbers, onSelect }: { barbers: BookingFlowState["barbers"
           <button
             key={b.id}
             onClick={() => onSelect(b.id)}
-            className="bg-bone text-ink rounded-card shadow-card p-3 text-left active:scale-[0.98] transition-transform flex items-center gap-3"
+            className="bg-bone text-ink rounded-card shadow-card p-3 text-left hover:shadow-float active:scale-[0.98] transition-all flex items-center gap-3"
           >
             <div className="w-12 h-12 rounded-pill bg-steel/15 overflow-hidden flex-shrink-0">
               {b.avatarUrl ? (
@@ -223,7 +258,7 @@ function DateStep({ onSelect }: { onSelect: (date: string) => void }) {
               key={iso}
               onClick={() => onSelect(iso)}
               className="snap-start flex-shrink-0 w-14 h-18 rounded-card flex flex-col items-center justify-center
-                bg-bone/5 border border-steel/20 active:scale-[0.96] transition-transform"
+                bg-bone/5 border border-steel/20 hover:border-brass/50 active:scale-[0.96] transition-all"
             >
               <span className="text-xs font-mono uppercase text-steel">
                 {d.toLocaleDateString("es-AR", { weekday: "short" })}
@@ -248,6 +283,13 @@ function SlotsStep({ slots, onSelect, onBack }: { slots: BookingFlowState["slots
 
   return (
     <div className="px-4 pt-6">
+      <button
+        onClick={onBack}
+        className="flex items-center gap-1 text-steel text-xs font-mono uppercase tracking-wide mb-3 hover:text-brass-light transition-colors"
+      >
+        <IconChevronLeft className="w-3.5 h-3.5" />
+        Cambiar fecha
+      </button>
       <h1 className="font-display text-2xl font-semibold mb-4">Elegí el horario</h1>
       <div className="grid grid-cols-3 gap-2.5">
         {slots.map((slot) => (
@@ -255,7 +297,7 @@ function SlotsStep({ slots, onSelect, onBack }: { slots: BookingFlowState["slots
             key={slot.start}
             onClick={() => onSelect(slot)}
             className="py-3 rounded font-mono text-sm tabular-nums border border-steel/25 text-bone
-              active:bg-brass active:text-ink active:border-brass transition-colors"
+              hover:border-brass/60 active:bg-brass active:text-ink active:border-brass transition-colors"
           >
             {new Date(slot.start).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
           </button>
@@ -313,7 +355,7 @@ function ConfirmSheet({
               />
               <button
                 onClick={() => onConfirm(note || undefined)}
-                className="w-full bg-brass text-ink font-semibold rounded-full py-4 active:scale-95 transition-all"
+                className="w-full bg-brass text-ink font-semibold rounded-full py-4 hover:bg-brass-light active:scale-95 transition-all"
               >
                 Confirmar reserva
               </button>
@@ -340,7 +382,7 @@ function ConfirmSheet({
               <button
                 onClick={() => onVerifyOtp(code, fullName || undefined)}
                 disabled={code.length < 6}
-                className="w-full bg-brass text-ink font-semibold rounded-full py-4 disabled:opacity-40 active:scale-95 transition-all"
+                className="w-full bg-brass text-ink font-semibold rounded-full py-4 disabled:opacity-40 hover:enabled:bg-brass-light active:scale-95 transition-all"
               >
                 Verificar y confirmar
               </button>
@@ -366,7 +408,7 @@ function ConfirmSheet({
               <button
                 onClick={() => onRequestOtp(phone, email)}
                 disabled={phone.length < 8 || !email.includes("@")}
-                className="w-full bg-brass text-ink font-semibold rounded-full py-4 disabled:opacity-40 active:scale-95 transition-all"
+                className="w-full bg-brass text-ink font-semibold rounded-full py-4 disabled:opacity-40 hover:enabled:bg-brass-light active:scale-95 transition-all"
               >
                 Enviar código
               </button>
@@ -393,14 +435,26 @@ function SuccessScreen({ confirmation }: { confirmation: NonNullable<BookingFlow
   return (
     <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
       <div className="w-16 h-16 rounded-pill bg-brass/15 flex items-center justify-center mb-6">
-        <span className="text-brass text-3xl">✓</span>
+        <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7 text-brass" aria-hidden="true">
+          <path
+            d="m5 12.5 4.5 4.5L19 7"
+            stroke="currentColor"
+            strokeWidth="2.4"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeDasharray="24"
+            className="animate-draw-check"
+          />
+        </svg>
       </div>
       <h1 className="font-display text-2xl font-semibold mb-2">¡Cita confirmada!</h1>
       <p className="text-steel text-sm mb-1">
         {new Date(confirmation.startsAt).toLocaleString("es-AR", { dateStyle: "long", timeStyle: "short" })}
       </p>
-      <p className="font-mono text-brass text-lg tracking-widest mt-4">{confirmation.confirmationCode}</p>
-      <p className="text-steel text-xs mt-1">Código de confirmación</p>
+      <p className="font-mono text-brass text-lg tracking-widest mt-4 bg-brass/10 border border-brass/25 rounded-card px-5 py-2.5">
+        {confirmation.confirmationCode}
+      </p>
+      <p className="text-steel text-xs mt-2">Código de confirmación</p>
     </div>
   );
 }
@@ -421,7 +475,7 @@ function ErrorScreen({
   return (
     <div className="flex flex-col items-center text-center py-16 px-6">
       <div className="w-16 h-16 rounded-pill bg-ember/10 flex items-center justify-center mb-4">
-        <span className="text-ember text-2xl">!</span>
+        <IconAlert className="w-6 h-6 text-ember" />
       </div>
       <p className="font-display text-lg mb-1">
         {isSlotConflict ? "Ese horario ya no está disponible" : "No pudimos completar la acción"}
@@ -434,14 +488,17 @@ function ErrorScreen({
             <button
               key={slot.start}
               onClick={() => onChooseAlternative(slot)}
-              className="py-3 rounded font-mono text-sm border border-brass/40 text-brass"
+              className="py-3 rounded font-mono text-sm border border-brass/40 text-brass hover:bg-brass/10 transition-colors"
             >
               {new Date(slot.start).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })}
             </button>
           ))}
         </div>
       ) : (
-        <button onClick={onRetry} className="border border-steel/40 text-bone rounded-full px-6 py-3">
+        <button
+          onClick={onRetry}
+          className="border border-steel/40 text-bone rounded-full px-6 py-3 hover:border-brass/60 hover:text-brass-light transition-colors"
+        >
           Reintentar
         </button>
       )}

@@ -14,7 +14,7 @@
 | `ink` | `#14161A` | Superficie oscura base, texto sobre bone |
 | `bone` | `#EDE9E2` | Superficie clara base, papel cálido (no blanco puro) |
 | `steel` | `#5B6169` | Neutro medio — texto secundario, bordes, iconografía |
-| `brass` | `#A9843C` | Acento primario — el "filo" de la marca. CTAs, focus, selección |
+| `brass` | `#F5B93F` | Acento primario — el "filo" de la marca. CTAs, focus, selección |
 | `ember` | `#B5502E` | Error / destructivo — terroso, no rojo semáforo |
 | `moss` | `#5C7A5E` | Éxito / confirmado — verde apagado, no verde sistema |
 
@@ -64,7 +64,7 @@ colors: {
   ink:   { DEFAULT: '#14161A', 80: '#14161ACC', 60: '#14161A99' },
   bone:  { DEFAULT: '#EDE9E2', 90: '#E4DFD5' },
   steel: { DEFAULT: '#5B6169', 40: '#5B616966' },
-  brass: { DEFAULT: '#A9843C', light: '#C9A15E', dark: '#8A6B2E' },
+  brass: { DEFAULT: '#F5B93F', light: '#FACD6E', dark: '#C49432' },
   ember: { DEFAULT: '#B5502E', light: '#D97757' /* solo interno, no exponer como acento primario */ },
   moss:  { DEFAULT: '#5C7A5E', light: '#7A9A7C' },
 }
@@ -120,7 +120,7 @@ boxShadow: {
   sm: '0 1px 2px 0 rgba(20,22,26,0.08)',
   card: '0 4px 16px -4px rgba(20,22,26,0.18)',
   float: '0 8px 24px -6px rgba(20,22,26,0.28)',
-  brass: '0 0 0 3px rgba(169,132,60,0.35)', // focus ring / selección activa
+  brass: '0 0 0 3px rgba(245,185,63,0.35)', // focus ring / selección activa
 }
 ```
 
@@ -221,13 +221,13 @@ Tres variantes, misma base:
 
 | Estado | Clases de color |
 |---|---|
-| Confirmada | `bg-brass/15 text-brass` |
-| En curso | `bg-moss/15 text-moss` + punto pulsante |
-| Completada | `bg-steel/15 text-steel` |
-| Cancelada | `bg-steel/10 text-steel/70 line-through` |
-| No-show | `bg-ember/15 text-ember` |
+| Pendiente | `bg-brass/15 text-brass-light` |
+| Confirmada | `bg-steel/15 text-bone` |
+| En curso | `bg-brass text-ink` (fill sólido) + punto pulsante en `bg-ink` |
+| Completada | `bg-moss/15 text-moss-light` |
+| No-show | `bg-ember/15 text-ember-light` |
 
-El punto pulsante de "en curso" (`animate-pulse` en un `w-1.5 h-1.5 rounded-full bg-moss`) es la única badge con microinteracción — refuerza que algo está sucediendo *ahora*.
+`brass` sólido queda reservado para "en curso" — es el único estado que exige atención inmediata del barbero. `moss` marca cierre exitoso, `ember` marca lo que salió mal (no-show), y `steel` es el estado neutral de espera ("confirmada" — ya sabemos que va a pasar, todavía no pasó). Implementado en `frontend/src/barbershop/components/BarbershopApp.tsx` (`STATUS_PILL`).
 
 ---
 

@@ -1,3 +1,51 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* Agenda (panel de gestión): la tabla colapsa a tarjetas apiladas en pantallas
+   angostas — mismos datos, sin scroll horizontal. */
+@media (max-width: 700px) {
+  table.agenda-table thead {
+    display: none;
+  }
+  table.agenda-table,
+  table.agenda-table tbody,
+  table.agenda-table tr,
+  table.agenda-table td {
+    display: block;
+    width: 100%;
+  }
+  table.agenda-table tr {
+    padding: 0.75rem 1rem;
+  }
+  table.agenda-table td {
+    padding: 0.15rem 0 !important;
+    border: none !important;
+  }
+  table.agenda-table td:last-child {
+    padding-top: 0.5rem !important;
+  }
+  table.agenda-table td[data-label]::before {
+    content: attr(data-label);
+    display: inline-block;
+    font-family: "JetBrains Mono", monospace;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: theme("colors.steel.DEFAULT");
+    width: 4.5rem;
+    vertical-align: top;
+  }
+  table.agenda-table td[data-label="Hora"]::before,
+  table.agenda-table td[data-label="Estado"]::before {
+    display: none;
+  }
+}

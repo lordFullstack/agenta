@@ -295,6 +295,14 @@ export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session, screen]);
 
+  // El nombre/logo de la barbería se usan en la barra lateral, visible en toda
+  // pantalla — se cargan una vez al iniciar sesión, no solo al entrar a Configuración.
+  useEffect(() => {
+    if (!session) return;
+    loadSettings();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session]);
+
   return {
     session,
     screen,

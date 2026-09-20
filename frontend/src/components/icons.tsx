@@ -1,0 +1,196 @@
+// frontend/src/components/icons.tsx
+// Set de íconos trazados a mano (stroke 1.8, cabos redondeados) — un solo estilo
+// consistente en toda la app (cliente y panel de gestión), ver docs/DESIGN_SYSTEM.md.
+import React from "react";
+
+type IconProps = { className?: string };
+
+const base = "none";
+
+export function IconScissors({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <circle cx="6.5" cy="6.5" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="6.5" cy="17.5" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8.4 8 19 18.5M19 5.5 8.3 16.1" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconClock({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M12 7.5V12l3.2 2" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconCalendar({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <rect x="4" y="5.5" width="16" height="14.5" rx="2.4" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M4 9.8h16M8 3.5v4M16 3.5v4" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconMapPin({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path
+        d="M12 21s7-6.4 7-11.5A7 7 0 1 0 5 9.5C5 14.6 12 21 12 21Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <circle cx="12" cy="9.3" r="2.4" stroke="currentColor" strokeWidth="1.8" />
+    </svg>
+  );
+}
+
+export function IconCheck({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path d="m5 12.5 4.5 4.5L19 7" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconAlert({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path d="M12 3.8 21 19H3L12 3.8Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+      <path d="M12 10v3.6" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <circle cx="12" cy="16.3" r="1" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function IconChevronLeft({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path d="m15 5-7 7 7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconArrowRight({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path d="M4 12h15M13 6l6 6-6 6" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+export function IconHome({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path d="M4 11.5 12 5l8 6.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M6 10v8.5a1 1 0 0 0 1 1h3.2v-5.4h3.6V19.5H17a1 1 0 0 0 1-1V10"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function IconUsers({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <circle cx="9" cy="8.3" r="3.1" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M3.2 19c.7-3.3 3-5 5.8-5s5.1 1.7 5.8 5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M15.5 5.6c1.5.3 2.6 1.6 2.6 3.1 0 1.4-.9 2.6-2.2 3M17.4 14.3c2.2.5 3.7 2 4.2 4.7"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+export function IconSettings({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <circle cx="12" cy="12" r="2.9" stroke="currentColor" strokeWidth="1.8" />
+      <path
+        d="M12 3.5v2.3M12 18.2v2.3M20.5 12h-2.3M5.8 12H3.5M17.7 6.3l-1.6 1.6M7.9 16.1l-1.6 1.6M17.7 17.7l-1.6-1.6M7.9 7.9 6.3 6.3"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+export function IconLogout({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path d="M9.5 4.5H6a1.5 1.5 0 0 0-1.5 1.5v12A1.5 1.5 0 0 0 6 19.5h3.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+      <path
+        d="M14 16l4.5-4-4.5-4M9.5 12h9"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function IconPlus({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path d="M12 5v14M5 12h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconPhone({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path
+        d="M6 3.6h2.6l1.3 3.7-1.9 1.6a12 12 0 0 0 5.3 5.3l1.6-1.9 3.7 1.3V16a2 2 0 0 1-2.2 2A15.5 15.5 0 0 1 4 4.8 2 2 0 0 1 6 3.6Z"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function IconLock({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <rect x="5" y="10.5" width="14" height="9.5" rx="2.2" stroke="currentColor" strokeWidth="1.8" />
+      <path d="M8 10.5V7.8a4 4 0 0 1 8 0v2.7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function IconImage({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <rect x="3.5" y="4.5" width="17" height="15" rx="2.2" stroke="currentColor" strokeWidth="1.8" />
+      <circle cx="9" cy="10" r="1.6" stroke="currentColor" strokeWidth="1.6" />
+      <path
+        d="m5 17.5 4.6-4.6a1.8 1.8 0 0 1 2.5 0l1 1 3-3.2a1.8 1.8 0 0 1 2.6 0l2.3 2.4"
+        stroke="currentColor"
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function IconChevronRight({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path d="m9 5 7 7-7 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
