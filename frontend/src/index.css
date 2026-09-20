@@ -8,6 +8,12 @@ body {
   -webkit-tap-highlight-color: transparent;
 }
 
+input,
+select,
+textarea {
+  color-scheme: dark; /* calendario/hora nativos oscuros */
+}
+
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
@@ -46,7 +52,7 @@ body {
     font-size: 10px;
     text-transform: uppercase;
     letter-spacing: 0.05em;
-    color: theme("colors.steel.DEFAULT");
+    color: theme("colors.fog");
     width: 4.5rem;
     vertical-align: top;
   }

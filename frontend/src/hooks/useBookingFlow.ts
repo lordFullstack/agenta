@@ -202,7 +202,7 @@ export function useBookingFlow(api: BookingApiClient) {
     async (customerNote?: string) => {
       if (!state.barbershop || !state.selectedBarberId || !state.selectedSlot) return;
       if (state.authStatus !== "authenticated") {
-        setState((s) => ({ ...s, authError: "Verificá tu código primero." }));
+        setState((s) => ({ ...s, authError: "Verifica tu código primero." }));
         return;
       }
 
@@ -238,7 +238,7 @@ export function useBookingFlow(api: BookingApiClient) {
         }));
       } catch (err) {
         if (err instanceof NotAuthenticatedError) {
-          setState((s) => ({ ...s, step: "confirm", authStatus: "unauthenticated", authError: "Tu sesión expiró, iniciá sesión de nuevo." }));
+          setState((s) => ({ ...s, step: "confirm", authStatus: "unauthenticated", authError: "Tu sesión expiró, inicia sesión de nuevo." }));
           return;
         }
         if (err instanceof ApiError && err.code === "slot_no_longer_available") {
@@ -284,9 +284,9 @@ export function useBookingFlow(api: BookingApiClient) {
 }
 
 function toDisplayError(err: unknown): { code: string; message: string } {
-  if (err instanceof TimeoutError) return { code: "timeout", message: "La operación tardó demasiado. Probá de nuevo." };
-  if (err instanceof NetworkError) return { code: "network_error", message: "No pudimos conectarnos. Revisá tu conexión." };
-  if (err instanceof NotAuthenticatedError) return { code: "not_authenticated", message: "Necesitás iniciar sesión." };
+  if (err instanceof TimeoutError) return { code: "timeout", message: "La operación tardó demasiado. Prueba de nuevo." };
+  if (err instanceof NetworkError) return { code: "network_error", message: "No pudimos conectarnos. Revisa tu conexión." };
+  if (err instanceof NotAuthenticatedError) return { code: "not_authenticated", message: "Necesitas iniciar sesión." };
   if (err instanceof ApiError) return { code: err.code, message: err.message };
-  return { code: "unknown_error", message: "Algo salió mal. Intentá de nuevo." };
+  return { code: "unknown_error", message: "Algo salió mal. Inténtalo de nuevo." };
 }

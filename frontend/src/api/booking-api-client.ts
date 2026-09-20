@@ -15,7 +15,7 @@ const REFRESH_TOKEN_STORAGE_KEY = "barberia_refresh_token";
 
 export class NetworkError extends Error {
   constructor(public cause: unknown) {
-    super("No pudimos conectarnos. Revisá tu conexión.");
+    super("No pudimos conectarnos. Revisa tu conexión.");
     this.name = "NetworkError";
   }
 }
@@ -37,7 +37,7 @@ export class ApiError extends Error {
 /** Se lanza cuando una acción requiere sesión y no hay tokens (válidos o refrescables). */
 export class NotAuthenticatedError extends Error {
   constructor() {
-    super("Necesitás iniciar sesión para continuar.");
+    super("Necesitas iniciar sesión para continuar.");
     this.name = "NotAuthenticatedError";
   }
 }

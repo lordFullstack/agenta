@@ -11,7 +11,7 @@ const REFRESH_TOKEN_STORAGE_KEY = "barberia_staff_refresh_token";
 
 export class NetworkError extends Error {
   constructor(public cause: unknown) {
-    super("No pudimos conectarnos. Revisá tu conexión.");
+    super("No pudimos conectarnos. Revisa tu conexión.");
     this.name = "NetworkError";
   }
 }
@@ -29,7 +29,7 @@ export class ApiError extends Error {
 }
 export class NotAuthenticatedError extends Error {
   constructor() {
-    super("Necesitás iniciar sesión para continuar.");
+    super("Necesitas iniciar sesión para continuar.");
     this.name = "NotAuthenticatedError";
   }
 }
@@ -224,6 +224,20 @@ export class BarbershopApiClient {
   getMyBranch(): Promise<{ branch: { id: string; name: string } }> {
     return this.authJson("GET", "/v1/admin/my-branch");
   }
+  // ── Fondos de la plataforma (solo el administrador de la plataforma) ──
+  getPlatformAdminStatus(): Promise<{ isPlatformAdmin: boolean }> {
+    return this.authJson("GET", "/v1/platform/admin-status");
+  }
+  getPlatformBranding(): Promise<{ branding: { hero: string | null; searchBg: string | null } }> {
+    return fetchWithTimeout(`${this.baseUrl}/v1/platform/branding`).then(parseJson);
+  }
+  uploadPlatformImage(slot: "hero" | "search_bg", file: File) {
+    return this.authUpload("PUT", `/v1/platform/branding/${slot}`, file);
+  }
+  removePlatformImage(slot: "hero" | "search_bg") {
+    return this.authJson("DELETE", `/v1/platform/branding/${slot}`);
+  }
+
   uploadTenantLogo(tenantId: string, file: File) {
     return this.authUpload("PUT", `/v1/tenants/${tenantId}/logo`, file);
   }

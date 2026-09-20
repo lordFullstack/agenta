@@ -8,19 +8,22 @@ import { IconSearch, IconArrowRight, IconChevronRight, IconScissors } from "../c
 import { bookingApi } from "../api/instance";
 import { listMyAppointments, StoredAppointment } from "../lib/myAppointments";
 import { formatShortDate, formatTime } from "../lib/format";
+import { usePlatformBranding } from "../lib/platformBranding";
 
 // ── 01 · Landing ──
-// Las fotos van en /public/img (hero.jpg). Mientras no existan se ve el degradado dorado/azul.
+// La foto la sube el administrador desde Configuración (o, por defecto, /public/img/hero.jpg).
+// Mientras no exista ninguna se ve el degradado dorado/azul.
 
 export function LandingScreen() {
   const navigate = useNavigate();
+  const branding = usePlatformBranding();
 
   return (
     <Screen>
       <div
         className="relative min-h-screen flex flex-col justify-end px-6 pb-8 overflow-hidden"
         style={photoBackground(
-          "/img/hero.jpg",
+          branding.hero,
           "linear-gradient(to bottom, rgba(9,18,27,0.2) 0%, rgba(9,18,27,0.1) 30%, rgba(9,18,27,0.9) 66%, #09121B 100%)",
           "radial-gradient(ellipse 60% 38% at 72% 16%, rgba(232,179,87,0.30), transparent 70%), radial-gradient(ellipse 55% 35% at 15% 28%, rgba(90,120,150,0.20), transparent 70%), linear-gradient(#10202D, #09121B)"
         )}
@@ -66,6 +69,7 @@ export function LandingScreen() {
 
 export function SearchScreen() {
   const navigate = useNavigate();
+  const branding = usePlatformBranding();
   const [query, setQuery] = useState("");
 
   // "Tus barberías": las últimas donde el cliente reservó desde este dispositivo.
@@ -85,7 +89,7 @@ export function SearchScreen() {
       <div
         className="absolute inset-x-0 bottom-0 h-[58%] pointer-events-none"
         style={photoBackground(
-          "/img/search-bg.jpg",
+          branding.searchBg,
           "linear-gradient(to bottom, #09121B 0%, rgba(9,18,27,0.55) 40%, rgba(9,18,27,0.25) 100%)",
           "radial-gradient(ellipse 60% 45% at 65% 75%, rgba(232,179,87,0.16), transparent 70%), linear-gradient(#0B1621, #09121B)"
         )}

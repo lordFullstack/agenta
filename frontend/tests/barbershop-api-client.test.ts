@@ -138,3 +138,40 @@ describe("BarbershopApiClient — llamadas autenticadas", () => {
     expect(client.isAuthenticated()).toBe(false);
   });
 });
+
+describe("BarbershopApiClient — fondos de la plataforma", () => {
+  it("uploadPlatformImage manda multipart con el campo 'file' a la ruta del slot, con Authorization", async () => {
+    const client = await loggedInClient({ sub: "u1", role: "owner", tenantId: "t1" });
+    global.fetch = jest.fn(() => Promise.resolve(jsonResponse(200, { branding: { hero: "https://x/h.jpg", searchBg: null } }))) as any;
+
+    const file = new File([new Uint8Array([1, 2, 3])], "hero.jpg", { type: "image/jpeg" });
+    const res = await client.uploadPlatformImage("hero", file);
+
+    const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe("http://test/v1/platform/branding/hero");
+    expect(options.method).toBe("PUT");
+    expect(options.headers.Authorization).toMatch(/^Bearer /);
+    expect((options.body as FormData).get("file")).toBeInstanceOf(File);
+    expect(options.headers["Content-Type"]).toBeUndefined(); // el navegador arma el boundary
+    expect(res.branding.hero).toBe("https://x/h.jpg");
+  });
+
+  it("un 403 (no es administrador de la plataforma) llega como ApiError", async () => {
+    const client = await loggedInClient({ sub: "u1", role: "owner", tenantId: "t1" });
+    global.fetch = jest.fn(() => Promise.resolve(jsonResponse(403, { error: "forbidden", message: "Solo el administrador" }))) as any;
+    await expect(client.uploadPlatformImage("search_bg", new File(["x"], "a.jpg", { type: "image/jpeg" }))).rejects.toBeInstanceOf(ApiError);
+  });
+
+  it("getPlatformAdminStatus y removePlatformImage usan las rutas correctas", async () => {
+    const client = await loggedInClient({ sub: "u1", role: "owner", tenantId: "t1" });
+    global.fetch = jest.fn(() => Promise.resolve(jsonResponse(200, { isPlatformAdmin: true }))) as any;
+    expect((await client.getPlatformAdminStatus()).isPlatformAdmin).toBe(true);
+    expect((global.fetch as jest.Mock).mock.calls[0][0]).toBe("http://test/v1/platform/admin-status");
+
+    global.fetch = jest.fn(() => Promise.resolve(jsonResponse(200, { branding: { hero: null, searchBg: null } }))) as any;
+    await client.removePlatformImage("hero");
+    const [url, options] = (global.fetch as jest.Mock).mock.calls[0];
+    expect(url).toBe("http://test/v1/platform/branding/hero");
+    expect(options.method).toBe("DELETE");
+  });
+});

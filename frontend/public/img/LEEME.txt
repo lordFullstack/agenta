@@ -1,7 +1,11 @@
 FOTOS DE FONDO DEL DISEÑO (opcionales)
 ======================================
-Suelta aquí las imágenes con estos nombres exactos y la app las usa sola,
-sin tocar código. Mientras no existan se ve un degradado oscuro con brillo dorado.
+Lo normal es subirlas desde la app: entra al panel con la cuenta de administrador de la
+plataforma (la del teléfono que pusiste en PLATFORM_ADMIN_PHONES) → Configuración →
+"Fondos de Agenta". Lo que subas ahí tiene prioridad sobre estos archivos.
+
+Estos archivos son solo el respaldo por defecto (lo que se ve mientras no hayas subido nada).
+Si los quieres, suéltalos aquí con estos nombres exactos:
 
 hero.jpg            Pantalla de inicio (01). Foto vertical del barbero de perfil, fondo oscuro.
                     Ideal: 1080 x 1920 px, el sujeto en la mitad superior (abajo va el texto).
@@ -10,4 +14,5 @@ search-bg.jpg       Pantalla de búsqueda (02). Silla de barbero / interior oscu
 cover-default.jpg   Portada por defecto del perfil de barbería (03) cuando la barbería
                     no subió su propia portada. Ideal: 1200 x 700 px.
 
-Consejos: usa JPG optimizado (menos de 300 KB cada una) para que la app cargue rápido.
+Si no hay ni foto subida ni archivo, se ve un degradado oscuro con brillo dorado.
+Consejo: JPG optimizado (menos de 300 KB) para que la app cargue rápido.

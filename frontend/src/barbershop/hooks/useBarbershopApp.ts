@@ -41,6 +41,10 @@ export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
   const [settingsError, setSettingsError] = useState<string | undefined>();
   const [settingsSaved, setSettingsSaved] = useState(false);
 
+  // Fondos de la plataforma — la sección solo aparece para el administrador de la plataforma
+  const [isPlatformAdmin, setIsPlatformAdmin] = useState(false);
+  const [platformBranding, setPlatformBranding] = useState<{ hero: string | null; searchBg: string | null }>({ hero: null, searchBg: null });
+
   const login = useCallback(
     async (identifier: string, password: string) => {
       setLoginError(undefined);
@@ -50,7 +54,7 @@ export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
         setSession(s);
         setScreen("dashboard");
       } catch (err) {
-        setLoginError(err instanceof ApiError ? err.message : "No pudimos conectarnos. Probá de nuevo.");
+        setLoginError(err instanceof ApiError ? err.message : "No pudimos conectarnos. Prueba de nuevo.");
       }
     },
     [api]
@@ -271,6 +275,47 @@ export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
     [api, session, loadSettings]
   );
 
+  const loadPlatformAdmin = useCallback(async () => {
+    try {
+      const { isPlatformAdmin: admin } = await api.getPlatformAdminStatus();
+      setIsPlatformAdmin(admin);
+      if (admin) setPlatformBranding((await api.getPlatformBranding()).branding);
+    } catch {
+      // Backend sin este endpoint o sin conexión: la sección simplemente no se muestra.
+      setIsPlatformAdmin(false);
+    }
+  }, [api]);
+
+  const uploadPlatformImage = useCallback(
+    async (slot: "hero" | "search_bg", file: File) => {
+      setSettingsSaved(false);
+      setSettingsError(undefined);
+      try {
+        const { branding } = await api.uploadPlatformImage(slot, file);
+        setPlatformBranding(branding);
+        setSettingsSaved(true);
+      } catch (err) {
+        setSettingsError(err instanceof ApiError ? err.message : "No pudimos subir el fondo.");
+      }
+    },
+    [api]
+  );
+
+  const removePlatformImage = useCallback(
+    async (slot: "hero" | "search_bg") => {
+      setSettingsSaved(false);
+      setSettingsError(undefined);
+      try {
+        const res = await api.removePlatformImage(slot);
+        setPlatformBranding(res.branding);
+        setSettingsSaved(true);
+      } catch (err) {
+        setSettingsError(err instanceof ApiError ? err.message : "No pudimos restaurar el fondo.");
+      }
+    },
+    [api]
+  );
+
   const saveBusinessHours = useCallback(
     async (hours: Array<{ dayOfWeek: string; opensAt: string; closesAt: string }>) => {
       setSettingsSaved(false);
@@ -300,6 +345,7 @@ export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
   useEffect(() => {
     if (!session) return;
     loadSettings();
+    loadPlatformAdmin();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
@@ -340,6 +386,10 @@ export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
     saveBusinessHours,
     uploadLogo,
     uploadCover,
+    isPlatformAdmin,
+    platformBranding,
+    uploadPlatformImage,
+    removePlatformImage,
     setBranchActive: api.setBranchActive.bind(api),
   };
 }

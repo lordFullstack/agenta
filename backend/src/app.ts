@@ -21,6 +21,7 @@ import { BookingService } from "./booking.service";
 import { BusinessService } from "./business.service";
 import { CatalogManagementService } from "./catalog-management.service";
 import { AgendaService } from "./agenda.service";
+import { PlatformService } from "./platform.service";
 
 import { OtpService } from "./auth/otp.service";
 import { TokenService } from "./auth/token.service";
@@ -31,6 +32,7 @@ import { buildAuthRoutes } from "./auth/auth.routes";
 import { buildBusinessRoutes } from "./business.routes";
 import { buildCatalogManagementRoutes } from "./catalog-management.routes";
 import { buildAgendaRoutes } from "./agenda.routes";
+import { buildPlatformRoutes } from "./platform.routes";
 import { logger } from "./logger";
 
 const DATABASE_URL = process.env.DATABASE_URL;
@@ -62,6 +64,7 @@ const booking = new BookingService(pool, availability, bookingConfig);
 const business = new BusinessService(pool, new TokenService(pool)); // ver nota abajo
 const catalogManagement = new CatalogManagementService(pool);
 const agenda = new AgendaService(pool);
+const platform = new PlatformService(pool);
 
 const tokens = new TokenService(pool);
 const otp = new OtpService(pool);
@@ -96,6 +99,7 @@ app.use(buildRoutes(availability, booking, catalog, bookingConfig, tokens));
 app.use(buildBusinessRoutes(business, tokens));
 app.use(buildCatalogManagementRoutes(catalogManagement, tokens));
 app.use(buildAgendaRoutes(agenda, tokens));
+app.use(buildPlatformRoutes(platform, tokens));
 
 app.get("/health", (_req, res) => res.status(200).json({ status: "ok" }));
 

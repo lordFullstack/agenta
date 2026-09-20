@@ -5,12 +5,34 @@ Numeración de LOOP = canónica oficial (ver `ROADMAP.md`).
 
 ---
 
+DATE: Fotos
+LOOP: Fotos de fondo y reorganización de las imágenes de cada barbería
+TYPE: FEATURE (backend + frontend) / UI
+DESCRIPTION:
+- Configuración → "Imagen de tu barbería": ahora es una vista previa igual al perfil que ve el
+  cliente (portada + logo circular + nombre), con botón de cámara sobre cada imagen y validación
+  en el navegador (JPG/PNG/WebP, máx. 5 MB). En Barberos, la foto muestra un botón de cámara visible.
+  Los endpoints de logo, portada y foto de barbero NO cambiaron.
+- Fondos de la plataforma (inicio y búsqueda del cliente): nueva tabla `platform_branding`
+  (migración 024) y rutas `GET /v1/platform/branding` (pública), `GET /v1/platform/admin-status`,
+  `PUT|DELETE /v1/platform/branding/:slot` (slots `hero`, `search_bg`). Solo las cuentas cuyo
+  teléfono esté en `PLATFORM_ADMIN_PHONES` pueden subir/restaurar; la sección "Fondos de Agenta"
+  de Configuración solo aparece para ellas. Sin fila = se usa `frontend/public/img/*.jpg` o el degradado.
+- Tests nuevos: `platform.test.ts`, `platform.routes.test.ts` (401/403/400 y subida real con multer)
+  y 3 en el cliente de API del panel.
+- El horario general de Configuración ahora muestra el nombre del día en vez de la clave (mon → Lunes).
+
+---
+
 DATE: Rediseño cliente
 LOOP: Rediseño visual del flujo del cliente según el mockup "Agenta Barber Booking"
 TYPE: UI / FRONTEND (sin cambios de backend ni de API)
 DESCRIPTION: Se rediseñó todo el lado cliente con el tema oscuro + dorado del mockup
 (10 pantallas: landing, búsqueda, perfil de barbería, servicios, barbero, fecha y hora,
-resumen, OTP, cita confirmada, mis citas). El panel de la barbería NO se tocó.
+resumen, OTP, cita confirmada, mis citas). El panel de la barbería recibió el mismo tema en
+una segunda pasada: login, registro, inicio, agenda, servicios, barberos y configuración
+(solo colores/tipografía/textos; la lógica no cambió). Todo el texto pasó a tuteo y a
+formato es-CO (pesos con punto de miles, hora "9:00 a.m.", teléfono +57).
 - Fecha y horario ahora son UNA sola pantalla (antes eran dos pasos).
 - El resumen va antes del OTP; el OTP es pantalla completa (6 casillas + reenvío con
   cuenta regresiva) y, al verificarse, la reserva se confirma sola.
