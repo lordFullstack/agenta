@@ -272,21 +272,26 @@ El indicador de tab activo **no** es un fondo relleno ni un ícono agrandado —
 
 ## 13. Calendar
 
-Selector horizontal de días (scroll snap), no un calendario en grilla mensual — prioriza velocidad sobre exploración:
+Grilla mensual real (lun–dom, navegación de mes con flechas, día actual marcado con anillo `brass`, días pasados deshabilitados y atenuados) — reemplazó al selector horizontal de 14 días: la grilla lee como un calendario de verdad en vez de un carrusel genérico, y sigue resolviéndose en un toque.
 
 ```html
-<div class="flex gap-2 overflow-x-auto snap-x px-4 scrollbar-hide">
-  <button class="snap-start flex-shrink-0 w-14 h-18 rounded-card flex flex-col items-center justify-center
-    bg-bone/5 border border-steel/20
-    aria-selected:bg-brass aria-selected:text-ink aria-selected:border-brass
-    disabled:opacity-30 disabled:line-through">
-    <span class="text-xs font-mono uppercase">Lun</span>
-    <span class="text-lg font-display font-semibold">24</span>
-  </button>
+<div class="bg-bone/5 border border-steel/20 rounded-card p-4">
+  <div class="flex items-center justify-between mb-4">
+    <button disabled:opacity-25>‹</button>
+    <p class="font-display font-semibold text-sm">Septiembre 2026</p>
+    <button>›</button>
+  </div>
+  <div class="grid grid-cols-7 gap-y-1.5">
+    <button class="w-9 h-9 rounded-pill font-mono text-sm
+      text-bone hover:bg-brass/15 active:bg-brass active:text-ink
+      disabled:text-steel/25">
+      20
+    </button>
+  </div>
 </div>
 ```
 
-Días sin disponibilidad: `disabled` con opacidad reducida (no se ocultan — mantener el ritmo visual del calendario). Día seleccionado: fondo `brass` sólido, único lugar donde `brass` se usa como fill grande (justifica su jerarquía de "decisión tomada").
+Día seleccionado no queda "marcado" de forma persistente (el flujo avanza al paso de horarios apenas se toca una fecha); el anillo `brass/50` es solo para el día de hoy. Meses anteriores al actual no son navegables.
 
 ---
 
@@ -327,7 +332,9 @@ Fuente `mono` en los horarios — es deliberado: da precisión "de instrumento" 
 </div>
 ```
 
-Tamaños: `w-8` (lista/grupo) · `w-11` (card estándar) · `w-14` (selección de barbero) · `w-20` (perfil individual del barbero). Anillo de disponibilidad: `moss` disponible hoy, `steel` sin turnos próximos, sin anillo = información no cargada (no usar `ember` acá, no es un estado de error).
+Tamaños: `w-8` (lista/grupo) · `w-11` (card estándar) · `w-20` (perfil individual del barbero). Anillo de disponibilidad: `moss` disponible hoy, `steel` sin turnos próximos, sin anillo = información no cargada (no usar `ember` acá, no es un estado de error).
+
+**Excepción — grilla de selección de barbero (paso 3 de la reserva):** no usa el avatar circular chico. Es una tarjeta `aspect-[4/5]`, foto a sangre (`object-cover`), con degradé `from-ink via-ink/75 to-transparent` en el tercio inferior y nombre + duración + precio superpuestos en `bone`/`brass-light`. El barbero es el contenido de la tarjeta, no una etiqueta al lado de un círculo — es la única pantalla del flujo de reserva donde una foto de persona ocupa el rol principal.
 
 ---
 
@@ -389,6 +396,8 @@ Dos niveles:
 - **Macro-success** (reserva confirmada — el hito principal del producto): pantalla completa con animación de check dibujándose (`stroke-dashoffset` de 0 a 100 en ~500ms, easing `ease-out`) en `brass`, seguido de resumen de la cita y CTA `Agregar al calendario` / `Volver al inicio`.
 
 El check de macro-success usa `brass`, no `moss` — es deliberado: refuerza que ese color es el de "decisión/acción completada por la marca", reservando `moss` para estados operativos del día a día (barbería).
+
+El código de confirmación es un chip tocable (`font-mono`, tracking ancho, ícono de copiar) que copia al portapapeles — no solo texto para leer. Debajo, una mini-card tipo recibo con el barbero (avatar + nombre) y los servicios elegidos, para que la captura de pantalla de esa vista sirva como comprobante autocontenido.
 
 ---
 

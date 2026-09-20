@@ -2,7 +2,38 @@
 import React, { useEffect, useState } from "react";
 import { useBookingFlow, BookingFlowState } from "../hooks/useBookingFlow";
 import { BookingApiClient } from "../api/booking-api-client";
-import { IconScissors, IconCheck, IconAlert, IconChevronLeft } from "./icons";
+import {
+  IconScissors,
+  IconBeard,
+  IconDroplet,
+  IconSparkles,
+  IconAlert,
+  IconChevronLeft,
+  IconChevronRight,
+  IconCalendar,
+  IconClock,
+  IconCopy,
+} from "./icons";
+
+// Ícono por tipo de servicio — coincidencia por palabra clave sobre el nombre que carga
+// la barbería (no hay un campo de categoría en el modelo de datos).
+function serviceIcon(name: string) {
+  const n = name.toLowerCase();
+  if (n.includes("barba") || n.includes("perfilado")) return IconBeard;
+  if (n.includes("tinte") || n.includes("color")) return IconDroplet;
+  if (n.includes("ceja") || n.includes("diseño") || n.includes("diseno")) return IconSparkles;
+  return IconScissors;
+}
+
+function toIsoDate(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
+function formatFriendlyDate(iso?: string) {
+  if (!iso) return "";
+  const raw = new Date(`${iso}T00:00:00`).toLocaleDateString("es-AR", { weekday: "long", day: "numeric", month: "long" });
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
 
 const api = new BookingApiClient(import.meta.env.VITE_API_URL ?? "http://localhost:3000");
 
@@ -38,7 +69,7 @@ export function BookingFlow({ barbershopSlug }: { barbershopSlug: string }) {
 
       {state.step === "submitting" && <ScreenLoading label="Confirmando tu reserva…" />}
 
-      {state.step === "success" && state.confirmation && <SuccessScreen confirmation={state.confirmation} />}
+      {state.step === "success" && state.confirmation && <SuccessScreen state={state} confirmation={state.confirmation} />}
 
       {state.step === "error" && state.error && (
         <ErrorScreen
@@ -158,6 +189,7 @@ function ServiceStep({
         <div className="space-y-2">
           {services.map((s) => {
             const isSelected = selected.includes(s.id);
+            const Icon = serviceIcon(s.name);
             return (
               <button
                 key={s.id}
@@ -170,7 +202,7 @@ function ServiceStep({
                   className="w-9 h-9 rounded-pill flex items-center justify-center flex-shrink-0 transition-colors"
                   style={{ background: isSelected ? "rgba(245,185,63,0.18)" : "rgba(91,97,105,0.1)" }}
                 >
-                  <IconScissors className={`w-4 h-4 ${isSelected ? "text-brass-dark" : "text-steel"}`} />
+                  <Icon className={`w-4 h-4 ${isSelected ? "text-brass-dark" : "text-steel"}`} />
                 </div>
                 <div className="text-left flex-1">
                   <p className="font-medium">{s.name}</p>
@@ -216,20 +248,22 @@ function BarberStep({ barbers, onSelect }: { barbers: BookingFlowState["barbers"
           <button
             key={b.id}
             onClick={() => onSelect(b.id)}
-            className="bg-bone text-ink rounded-card shadow-card p-3 text-left hover:shadow-float active:scale-[0.98] transition-all flex items-center gap-3"
+            className="group relative aspect-[4/5] rounded-card overflow-hidden shadow-card hover:shadow-float active:scale-[0.98] transition-all bg-steel/15"
           >
-            <div className="w-12 h-12 rounded-pill bg-steel/15 overflow-hidden flex-shrink-0">
-              {b.avatarUrl ? (
-                <img src={b.avatarUrl} alt={b.fullName} className="w-full h-full object-cover" />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center font-display font-semibold text-steel">
-                  {b.fullName.charAt(0)}
-                </div>
-              )}
-            </div>
-            <div>
-              <p className="font-medium">{b.fullName}</p>
-              <p className="text-steel text-xs font-mono">{b.durationMinutes} min · ${b.price}</p>
+            {b.avatarUrl ? (
+              <img
+                src={b.avatarUrl}
+                alt={b.fullName}
+                className="absolute inset-0 w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
+              />
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center bg-steel/10">
+                <span className="font-display text-4xl font-semibold text-steel/50">{b.fullName.charAt(0)}</span>
+              </div>
+            )}
+            <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-ink via-ink/75 to-transparent pt-12 pb-3 px-3 text-left">
+              <p className="text-bone font-medium text-sm leading-tight truncate">{b.fullName}</p>
+              <p className="text-brass-light text-xs font-mono mt-0.5">{b.durationMinutes} min · ${b.price}</p>
             </div>
           </button>
         ))}
@@ -238,35 +272,82 @@ function BarberStep({ barbers, onSelect }: { barbers: BookingFlowState["barbers"
   );
 }
 
-// ── Paso 4: Fecha (simplificado — selector de próximos 14 días) ──
+// ── Paso 4: Fecha (calendario mensual) ──
+
+const WEEKDAY_LABELS = ["L", "M", "M", "J", "V", "S", "D"];
 
 function DateStep({ onSelect }: { onSelect: (date: string) => void }) {
-  const days = Array.from({ length: 14 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() + i);
-    return d;
-  });
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+
+  const [viewDate, setViewDate] = useState(() => new Date(today.getFullYear(), today.getMonth(), 1));
+
+  const isCurrentMonth = viewDate.getFullYear() === today.getFullYear() && viewDate.getMonth() === today.getMonth();
+  const changeMonth = (delta: number) => setViewDate((d) => new Date(d.getFullYear(), d.getMonth() + delta, 1));
+
+  const firstWeekday = (viewDate.getDay() + 6) % 7; // lunes = 0
+  const daysInMonth = new Date(viewDate.getFullYear(), viewDate.getMonth() + 1, 0).getDate();
+
+  const cells: Array<Date | null> = [
+    ...Array.from({ length: firstWeekday }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, i) => new Date(viewDate.getFullYear(), viewDate.getMonth(), i + 1)),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  const rawMonthLabel = viewDate.toLocaleDateString("es-AR", { month: "long", year: "numeric" });
+  const monthLabel = rawMonthLabel.charAt(0).toUpperCase() + rawMonthLabel.slice(1);
 
   return (
     <div className="px-4 pt-6">
       <h1 className="font-display text-2xl font-semibold mb-4">Elegí el día</h1>
-      <div className="flex gap-2 overflow-x-auto snap-x pb-2">
-        {days.map((d) => {
-          const iso = d.toISOString().slice(0, 10);
-          return (
-            <button
-              key={iso}
-              onClick={() => onSelect(iso)}
-              className="snap-start flex-shrink-0 w-14 h-18 rounded-card flex flex-col items-center justify-center
-                bg-bone/5 border border-steel/20 hover:border-brass/50 active:scale-[0.96] transition-all"
-            >
-              <span className="text-xs font-mono uppercase text-steel">
-                {d.toLocaleDateString("es-AR", { weekday: "short" })}
-              </span>
-              <span className="text-lg font-display font-semibold">{d.getDate()}</span>
-            </button>
-          );
-        })}
+      <div className="bg-bone/5 border border-steel/20 rounded-card p-4">
+        <div className="flex items-center justify-between mb-4">
+          <button
+            onClick={() => changeMonth(-1)}
+            disabled={isCurrentMonth}
+            aria-label="Mes anterior"
+            className="w-8 h-8 flex items-center justify-center rounded-pill text-steel disabled:opacity-25 hover:text-brass-light hover:bg-bone/10 transition-colors"
+          >
+            <IconChevronLeft className="w-4 h-4" />
+          </button>
+          <p className="font-display font-semibold text-sm">{monthLabel}</p>
+          <button
+            onClick={() => changeMonth(1)}
+            aria-label="Mes siguiente"
+            className="w-8 h-8 flex items-center justify-center rounded-pill text-steel hover:text-brass-light hover:bg-bone/10 transition-colors"
+          >
+            <IconChevronRight className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7 mb-1">
+          {WEEKDAY_LABELS.map((w, i) => (
+            <span key={i} className="text-center text-[10px] font-mono uppercase text-steel/60 py-1">
+              {w}
+            </span>
+          ))}
+        </div>
+
+        <div className="grid grid-cols-7 gap-y-1.5">
+          {cells.map((date, i) => {
+            if (!date) return <div key={i} />;
+            const isPast = date < today;
+            const isToday = date.getTime() === today.getTime();
+            return (
+              <div key={i} className="flex items-center justify-center">
+                <button
+                  disabled={isPast}
+                  onClick={() => onSelect(toIsoDate(date))}
+                  className={`w-9 h-9 rounded-pill flex items-center justify-center text-sm font-mono tabular-nums transition-all
+                    ${isPast ? "text-steel/25" : "text-bone hover:bg-brass/15 active:scale-90 active:bg-brass active:text-ink"}
+                    ${isToday && !isPast ? "border border-brass/50" : ""}`}
+                >
+                  {date.getDate()}
+                </button>
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
@@ -326,23 +407,54 @@ function ConfirmSheet({
   const [code, setCode] = useState("");
   const [fullName, setFullName] = useState("");
 
+  const selectedBarber = state.barbers.find((b) => b.id === state.selectedBarberId);
+  const selectedServices = state.services.filter((s) => state.selectedServiceIds.includes(s.id));
+  const total = selectedServices.reduce((sum, s) => sum + s.basePrice, 0);
+
   return (
     <div className="fixed inset-0 z-50 flex items-end">
       <div className="absolute inset-0 bg-ink/60 backdrop-blur-sm" />
       <div className="relative w-full bg-bone text-ink rounded-t-sheet shadow-float max-h-[85vh] overflow-y-auto pb-safe">
         <div className="w-9 h-1 bg-steel/30 rounded-pill mx-auto mt-3 mb-4" />
         <div className="px-5 pb-6">
-          <h2 className="font-display text-xl font-semibold mb-4">Confirmá tu reserva</h2>
+          <h2 className="font-display text-xl font-semibold">Confirmá tu reserva</h2>
+          {state.barbershop && <p className="text-steel text-xs mb-4">{state.barbershop.tradeName}</p>}
 
-          <div className="space-y-2 text-sm mb-4">
-            <Row label="Barbería" value={state.barbershop?.tradeName ?? ""} />
-            <Row label="Fecha" value={state.selectedDate ?? ""} />
-            <Row
+          {selectedBarber && (
+            <div className="flex items-center gap-3 pb-4 mb-3 border-b border-steel/15">
+              <div className="w-10 h-10 rounded-pill bg-steel/15 overflow-hidden flex-shrink-0">
+                {selectedBarber.avatarUrl ? (
+                  <img src={selectedBarber.avatarUrl} alt={selectedBarber.fullName} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center font-display font-semibold text-steel">
+                    {selectedBarber.fullName.charAt(0)}
+                  </div>
+                )}
+              </div>
+              <div>
+                <p className="font-medium text-sm">{selectedBarber.fullName}</p>
+                {selectedServices.length > 0 && (
+                  <p className="text-steel text-xs font-mono">{selectedServices.map((s) => s.name).join(" · ")}</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-2.5 text-sm mb-4">
+            <IconRow icon={IconCalendar} label="Fecha" value={formatFriendlyDate(state.selectedDate)} />
+            <IconRow
+              icon={IconClock}
               label="Horario"
               value={
                 state.selectedSlot ? new Date(state.selectedSlot.start).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" }) : ""
               }
             />
+            {total > 0 && (
+              <div className="flex items-center justify-between pt-2 border-t border-steel/15">
+                <span className="text-steel">Total</span>
+                <span className="font-mono font-semibold tabular-nums">${total}</span>
+              </div>
+            )}
           </div>
 
           {state.authStatus === "authenticated" ? (
@@ -420,20 +532,54 @@ function ConfirmSheet({
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function IconRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
   return (
-    <div className="flex justify-between">
-      <span className="text-steel">{label}</span>
-      <span className="font-medium">{value}</span>
+    <div className="flex items-center gap-3">
+      <div className="w-8 h-8 rounded-pill bg-steel/10 flex items-center justify-center flex-shrink-0">
+        <Icon className="w-3.5 h-3.5 text-steel" />
+      </div>
+      <div className="flex-1 flex items-center justify-between">
+        <span className="text-steel text-xs">{label}</span>
+        <span className="font-medium">{value}</span>
+      </div>
     </div>
   );
 }
 
 // ── Paso 14: Éxito ──
 
-function SuccessScreen({ confirmation }: { confirmation: NonNullable<BookingFlowState["confirmation"]> }) {
+function SuccessScreen({
+  state,
+  confirmation,
+}: {
+  state: BookingFlowState;
+  confirmation: NonNullable<BookingFlowState["confirmation"]>;
+}) {
+  const [copied, setCopied] = useState(false);
+  const selectedBarber = state.barbers.find((b) => b.id === state.selectedBarberId);
+  const selectedServices = state.services.filter((s) => state.selectedServiceIds.includes(s.id));
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(confirmation.confirmationCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API no disponible (contexto no seguro / navegador viejo) — el código
+      // sigue visible en pantalla para copiarlo a mano.
+    }
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center">
+    <div className="flex flex-col items-center justify-center min-h-screen px-6 py-16 text-center">
       <div className="w-16 h-16 rounded-pill bg-brass/15 flex items-center justify-center mb-6">
         <svg viewBox="0 0 24 24" fill="none" className="w-7 h-7 text-brass" aria-hidden="true">
           <path
@@ -447,14 +593,43 @@ function SuccessScreen({ confirmation }: { confirmation: NonNullable<BookingFlow
           />
         </svg>
       </div>
-      <h1 className="font-display text-2xl font-semibold mb-2">¡Cita confirmada!</h1>
-      <p className="text-steel text-sm mb-1">
+      <h1 className="font-display text-2xl font-semibold mb-1">¡Cita confirmada!</h1>
+      <p className="text-steel text-sm mb-6">
         {new Date(confirmation.startsAt).toLocaleString("es-AR", { dateStyle: "long", timeStyle: "short" })}
       </p>
-      <p className="font-mono text-brass text-lg tracking-widest mt-4 bg-brass/10 border border-brass/25 rounded-card px-5 py-2.5">
+
+      <button
+        onClick={handleCopy}
+        className="group flex items-center gap-3 font-mono text-brass text-xl tracking-[0.2em] bg-brass/10 border border-brass/25 rounded-card px-6 py-3.5 hover:border-brass/50 active:scale-[0.98] transition-all"
+      >
         {confirmation.confirmationCode}
-      </p>
-      <p className="text-steel text-xs mt-2">Código de confirmación</p>
+        <IconCopy className="w-4 h-4 text-brass/70 group-hover:text-brass transition-colors" />
+      </button>
+      <p className="text-steel text-xs mt-2 mb-8">{copied ? "¡Copiado!" : "Código de confirmación · tocá para copiar"}</p>
+
+      {(selectedBarber || selectedServices.length > 0) && (
+        <div className="w-full max-w-xs bg-bone/5 border border-steel/20 rounded-card p-4 text-left space-y-2.5">
+          {selectedBarber && (
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-pill bg-steel/15 overflow-hidden flex-shrink-0">
+                {selectedBarber.avatarUrl ? (
+                  <img src={selectedBarber.avatarUrl} alt={selectedBarber.fullName} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center font-display text-xs font-semibold text-steel">
+                    {selectedBarber.fullName.charAt(0)}
+                  </div>
+                )}
+              </div>
+              <p className="text-sm font-medium">{selectedBarber.fullName}</p>
+            </div>
+          )}
+          {selectedServices.length > 0 && (
+            <p className="text-steel text-xs font-mono pt-2 border-t border-steel/15">
+              {selectedServices.map((s) => s.name).join(" · ")}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

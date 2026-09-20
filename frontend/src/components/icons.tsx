@@ -194,3 +194,64 @@ export function IconChevronRight({ className }: IconProps) {
     </svg>
   );
 }
+
+export function IconBeard({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path
+        d="M6 8.5V11c0 4.5 2.6 8.5 6 8.5s6-4 6-8.5V8.5"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M4.5 5.5C4.5 4 5.8 3 7.5 3h9c1.7 0 3 1 3 2.5 0 1.8-1.2 3.3-2.7 3.3-1.1 0-1.7-.8-2.3-.8s-.8 1.6-2 1.6-1.4-1.6-2-1.6-1.2.8-2.3.8C5.7 8.8 4.5 7.3 4.5 5.5Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function IconDroplet({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path
+        d="M12 3.5s6 6.7 6 11a6 6 0 1 1-12 0c0-4.3 6-11 6-11Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function IconSparkles({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path
+        d="M11 3.5c.4 2.6 1 3.9 4 4.5-3 .6-3.6 1.9-4 4.5-.4-2.6-1-3.9-4-4.5 3-.6 3.6-1.9 4-4.5Z"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M18 13.2c.28 1.7.66 2.5 2.5 2.9-1.84.4-2.22 1.2-2.5 2.9-.28-1.7-.66-2.5-2.5-2.9 1.84-.4 2.22-1.2 2.5-2.9Z"
+        stroke="currentColor"
+        strokeWidth="1.4"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
+export function IconCopy({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <rect x="8.5" y="8.5" width="11" height="12" rx="2" stroke="currentColor" strokeWidth="1.7" />
+      <path d="M15.5 8.5V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v9.5a2 2 0 0 0 2 2h2.5" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" />
+    </svg>
+  );
+}

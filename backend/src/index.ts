@@ -3,6 +3,7 @@
 // Entrypoint para correr el servidor de larga duración (desarrollo local, Docker, VPS,
 // Railway/Render). El deploy serverless en Vercel usa `api/index.ts`, que reexporta la
 // misma app de `./app` sin llamar a `listen()`.
+import "dotenv/config";
 import { app, pool } from "./app";
 import { logger } from "./logger";
 
