@@ -326,6 +326,9 @@ export class BarbershopApiClient {
   updateAppointmentStatus(appointmentId: string, status: string) {
     return this.authJson("PUT", `/v1/admin/appointments/${appointmentId}/status`, { status });
   }
+  recordPayment(appointmentId: string, input: { amount: number; method: string; paid_at?: string }) {
+    return this.authJson("POST", `/v1/admin/appointments/${appointmentId}/payment`, input);
+  }
   createWalkIn(input: { branch_id: string; staff_id: string; customer_phone: string; customer_full_name?: string; service_ids: string[]; starts_at: string }) {
     return this.authJson("POST", "/v1/admin/walk-ins", input);
   }

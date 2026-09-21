@@ -5,6 +5,7 @@ import {
   TenantMismatchError,
   InvalidStatusTransitionError,
   SlotConflictError,
+  InvalidPaymentError,
 } from "../src/agenda.service";
 
 function makeMockPool(queryImpl: (sql: string, params?: any[]) => Promise<any>) {
@@ -149,6 +150,79 @@ describe("AgendaService — updateAppointmentStatus", () => {
     await expect(
       service.updateAppointmentStatus(TENANT, "a-inexistente", "completed", "owner", undefined, "user-1")
     ).rejects.toBeInstanceOf(TenantMismatchError);
+  });
+});
+
+describe("AgendaService — recordPayment", () => {
+  const paymentInput = {
+    tenantId: TENANT,
+    appointmentId: "appt-1",
+    amount: 25000,
+    method: "wallet",
+  };
+
+  it("un barber puede registrar el pago de SU PROPIA cita", async () => {
+    const { pool } = makeMockPool(async (sql: string) => {
+      if (sql.includes("SELECT staff_id FROM appointments")) return { rows: [{ staff_id: "staff-yo" }] };
+      if (sql.includes("INSERT INTO payments")) {
+        return { rows: [{ id: "pay-1", amount: "25000", method: "wallet", status: "paid" }] };
+      }
+      return {};
+    });
+    const service = new AgendaService(pool);
+
+    const result = await service.recordPayment(paymentInput, "barber", "staff-yo");
+    expect(result.id).toBe("pay-1");
+    expect(result.status).toBe("paid");
+  });
+
+  it("un barber NO puede registrar el pago de la cita de OTRO barbero (OwnAppointmentsOnlyError)", async () => {
+    const { pool } = makeMockPool(async (sql: string) => {
+      if (sql.includes("SELECT staff_id FROM appointments")) return { rows: [{ staff_id: "staff-otro" }] };
+      return {};
+    });
+    const service = new AgendaService(pool);
+
+    await expect(service.recordPayment(paymentInput, "barber", "staff-yo")).rejects.toBeInstanceOf(OwnAppointmentsOnlyError);
+  });
+
+  it("un owner puede registrar el pago de la cita de CUALQUIER barbero", async () => {
+    const { pool } = makeMockPool(async (sql: string) => {
+      if (sql.includes("SELECT staff_id FROM appointments")) return { rows: [{ staff_id: "cualquier-staff" }] };
+      if (sql.includes("INSERT INTO payments")) return { rows: [{ id: "pay-2", status: "paid" }] };
+      return {};
+    });
+    const service = new AgendaService(pool);
+
+    const result = await service.recordPayment(paymentInput, "owner", undefined);
+    expect(result.id).toBe("pay-2");
+  });
+
+  it("rechaza con TenantMismatchError si la cita no existe (o es de otro tenant)", async () => {
+    const { pool } = makeMockPool(async (sql: string) => {
+      if (sql.includes("SELECT staff_id FROM appointments")) return { rows: [] };
+      return {};
+    });
+    const service = new AgendaService(pool);
+
+    await expect(service.recordPayment(paymentInput, "owner", undefined)).rejects.toBeInstanceOf(TenantMismatchError);
+  });
+
+  it("mapea un método de pago inválido (enum rechazado por Postgres) a InvalidPaymentError", async () => {
+    const { pool } = makeMockPool(async (sql: string) => {
+      if (sql.includes("SELECT staff_id FROM appointments")) return { rows: [{ staff_id: "staff-yo" }] };
+      if (sql.includes("INSERT INTO payments")) {
+        const err: any = new Error('invalid input value for enum payment_method: "bitcoin"');
+        err.code = "22P02";
+        throw err;
+      }
+      return {};
+    });
+    const service = new AgendaService(pool);
+
+    await expect(
+      service.recordPayment({ ...paymentInput, method: "bitcoin" }, "owner", undefined)
+    ).rejects.toBeInstanceOf(InvalidPaymentError);
   });
 });
 

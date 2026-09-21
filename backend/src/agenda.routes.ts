@@ -6,6 +6,7 @@ import {
   OwnAppointmentsOnlyError,
   InvalidStatusTransitionError,
   SlotConflictError,
+  InvalidPaymentError,
   CallerRole,
 } from "./agenda.service";
 import { TokenService } from "./auth/token.service";
@@ -22,6 +23,7 @@ export function buildAgendaRoutes(agenda: AgendaService, tokens: TokenService): 
     if (err instanceof TenantMismatchError) return res.status(403).json({ error: "forbidden", message: err.message });
     if (err instanceof InvalidStatusTransitionError) return res.status(422).json({ error: "invalid_status_transition", message: err.message });
     if (err instanceof SlotConflictError) return res.status(409).json({ error: "slot_conflict", message: err.message });
+    if (err instanceof InvalidPaymentError) return res.status(422).json({ error: "invalid_payment", message: err.message });
     throw err;
   }
 
@@ -58,6 +60,39 @@ export function buildAgendaRoutes(agenda: AgendaService, tokens: TokenService): 
           req.user!.sub
         );
         res.status(200).json({ appointment: result });
+      } catch (err) {
+        handleDomainError(err, res);
+      }
+    }
+  );
+
+  router.post(
+    "/v1/admin/appointments/:id/payment",
+    requireAuth,
+    requireStaffRole,
+    validateUuidParams("id"),
+    async (req: Request, res: Response) => {
+      const tenantId = req.user!.tenantId;
+      if (!tenantId) return res.status(403).json({ error: "forbidden" });
+
+      const { amount, method, paid_at } = req.body;
+      if (typeof amount !== "number" || !Number.isFinite(amount) || amount < 0) {
+        return res.status(422).json({ error: "invalid_payment", message: "El monto tiene que ser un número válido." });
+      }
+
+      try {
+        const payment = await agenda.recordPayment(
+          {
+            tenantId,
+            appointmentId: req.params.id,
+            amount,
+            method,
+            paidAt: paid_at ? new Date(paid_at) : undefined,
+          },
+          req.user!.role as CallerRole,
+          req.user!.staffId
+        );
+        res.status(201).json({ payment });
       } catch (err) {
         handleDomainError(err, res);
       }

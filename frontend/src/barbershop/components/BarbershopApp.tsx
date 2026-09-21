@@ -18,6 +18,7 @@ import {
   IconChevronRight,
   IconCamera,
   IconNavigation,
+  IconWallet,
 } from "../../components/icons";
 import { Logo, Avatar, photoBackground } from "../../components/ui";
 import { ImagePicker } from "../../components/ImagePicker";
@@ -68,6 +69,7 @@ export function BarbershopApp({ branchId }: { branchId: string }) {
                 actionError={app.actionError}
                 onLoadDate={(date) => app.loadAgenda(date)}
                 onUpdateStatus={app.updateStatus}
+                onRecordPayment={app.recordPayment}
                 onCreateWalkIn={app.createWalkIn}
               />
             )}
@@ -407,6 +409,25 @@ function StatusPill({ status }: { status: string }) {
   );
 }
 
+// ── Pago manual (MVP: QR de billetera propio de la barbería — sin pasarela) ──
+
+const PAYMENT_METHOD_LABEL: Record<string, string> = {
+  cash: "Efectivo",
+  card: "Tarjeta",
+  deposit_online: "Seña online",
+  wallet: "Billetera (QR)",
+};
+
+function PaymentPill({ status, method }: { status: string | null; method: string | null }) {
+  if (status !== "paid") return <span className="text-xs text-fog">Sin pago</span>;
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-pill text-[11px] font-medium bg-moss/15 text-moss-light">
+      <IconWallet className="w-3 h-3" />
+      {method ? PAYMENT_METHOD_LABEL[method] ?? method : "Pagado"}
+    </span>
+  );
+}
+
 // ── Dashboard ──
 
 function DashboardScreen({ agenda, loading, onGoAgenda }: { agenda: AppointmentRow[]; loading: boolean; onGoAgenda: () => void }) {
@@ -514,6 +535,7 @@ function AgendaScreen({
   actionError,
   onLoadDate,
   onUpdateStatus,
+  onRecordPayment,
   onCreateWalkIn,
 }: {
   agenda: AppointmentRow[];
@@ -522,10 +544,12 @@ function AgendaScreen({
   actionError?: string;
   onLoadDate: (date: string) => void;
   onUpdateStatus: (id: string, status: string, date: string) => void;
+  onRecordPayment: (id: string, input: { amount: number; method: string }, date: string) => Promise<boolean>;
   onCreateWalkIn: (input: any, date: string) => Promise<boolean>;
 }) {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [showWalkIn, setShowWalkIn] = useState(false);
+  const [payingAppointment, setPayingAppointment] = useState<AppointmentRow | null>(null);
 
   const nextStatus: Record<string, string> = { pending: "confirmed", confirmed: "in_progress", in_progress: "completed" };
   const statusLabel: Record<string, string> = { pending: "Confirmar", confirmed: "Iniciar", in_progress: "Completar" };
@@ -596,6 +620,7 @@ function AgendaScreen({
                 <th className="text-left text-[11px] uppercase tracking-wide text-fog font-medium px-4 py-3">Cliente</th>
                 <th className="text-left text-[11px] uppercase tracking-wide text-fog font-medium px-4 py-3">Barbero</th>
                 <th className="text-left text-[11px] uppercase tracking-wide text-fog font-medium px-4 py-3">Estado</th>
+                <th className="text-left text-[11px] uppercase tracking-wide text-fog font-medium px-4 py-3">Pago</th>
                 <th className="px-4 py-3" />
               </tr>
             </thead>
@@ -615,8 +640,19 @@ function AgendaScreen({
                   <td className="px-4 py-3 align-middle" data-label="Estado">
                     <StatusPill status={a.status} />
                   </td>
+                  <td className="px-4 py-3 align-middle" data-label="Pago">
+                    <PaymentPill status={a.payment_status} method={a.payment_method} />
+                  </td>
                   <td className="px-4 py-3 align-middle">
                     <div className="flex gap-2 justify-end">
+                      {a.payment_status !== "paid" && (
+                        <button
+                          onClick={() => setPayingAppointment(a)}
+                          className="text-xs bg-moss/15 text-moss-light hover:bg-moss/25 px-3 py-1.5 rounded-full font-medium whitespace-nowrap transition-colors"
+                        >
+                          Cobrar
+                        </button>
+                      )}
                       {nextStatus[a.status] && (
                         <button
                           onClick={() => onUpdateStatus(a.id, nextStatus[a.status], date)}
@@ -661,6 +697,90 @@ function AgendaScreen({
           }}
         />
       )}
+
+      {payingAppointment && (
+        <PaymentSheet
+          appointment={payingAppointment}
+          onClose={() => setPayingAppointment(null)}
+          onSubmit={async (input) => {
+            const ok = await onRecordPayment(payingAppointment.id, input, date);
+            if (ok) setPayingAppointment(null);
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PaymentSheet({
+  appointment,
+  onClose,
+  onSubmit,
+}: {
+  appointment: AppointmentRow;
+  onClose: () => void;
+  onSubmit: (input: { amount: number; method: string }) => void;
+}) {
+  const [amount, setAmount] = useState(String(Math.round(parseFloat(appointment.price_total) || 0)));
+  const [method, setMethod] = useState("wallet");
+
+  const METHODS: Array<{ value: string; label: string }> = [
+    { value: "wallet", label: "Billetera (QR)" },
+    { value: "cash", label: "Efectivo" },
+    { value: "card", label: "Tarjeta" },
+    { value: "deposit_online", label: "Seña online" },
+  ];
+
+  const parsedAmount = parseFloat(amount);
+  const canSubmit = Number.isFinite(parsedAmount) && parsedAmount >= 0;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end">
+      <div className="absolute inset-0 bg-night/80 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full sm:max-w-md sm:mx-auto bg-panel-raised border-t sm:border border-edge-strong text-snow rounded-t-sheet sm:rounded-b-sheet p-5 pb-8">
+        <div className="w-9 h-1 bg-panel-raised rounded-pill mx-auto mb-4 sm:hidden" />
+        <h2 className="font-display text-xl font-semibold mb-1">Registrar pago</h2>
+        <p className="text-fog text-sm mb-4">{appointment.customer_name}</p>
+
+        <div className="flex flex-col gap-3">
+          <div>
+            <label className="block text-xs font-medium text-fog mb-1.5">Monto</label>
+            <input
+              type="number"
+              inputMode="decimal"
+              min={0}
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full bg-night border border-edge-strong text-snow placeholder:text-fog/70 rounded-xl px-3.5 py-2.5 text-sm font-mono outline-none focus:border-gold"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-fog mb-1.5">Método</label>
+            <div className="grid grid-cols-2 gap-2">
+              {METHODS.map((m) => (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setMethod(m.value)}
+                  aria-pressed={method === m.value}
+                  className="text-sm rounded-xl border border-edge-strong px-3 py-2.5 text-left text-fog transition-colors
+                    aria-pressed:bg-gold/15 aria-pressed:border-gold aria-pressed:text-gold-light hover:text-snow"
+                >
+                  {m.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        <button
+          disabled={!canSubmit}
+          onClick={() => onSubmit({ amount: parsedAmount, method })}
+          className="w-full bg-gold text-night font-semibold rounded-full py-3.5 mt-5 disabled:opacity-40 hover:enabled:bg-gold-light active:scale-95 transition-all"
+        >
+          Confirmar pago
+        </button>
+      </div>
     </div>
   );
 }

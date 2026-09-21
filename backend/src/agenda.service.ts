@@ -33,6 +33,13 @@ export class SlotConflictError extends Error {
   }
 }
 
+export class InvalidPaymentError extends Error {
+  constructor(message = "El monto o el método de pago no son válidos.") {
+    super(message);
+    this.name = "InvalidPaymentError";
+  }
+}
+
 export type CallerRole = "owner" | "branch_admin" | "barber";
 
 export interface AgendaQuery {
@@ -53,6 +60,14 @@ export interface WalkInInput {
   serviceIds: string[];
   startsAt: Date;
   createdBy: string;
+}
+
+export interface RecordPaymentInput {
+  tenantId: string;
+  appointmentId: string;
+  amount: number;
+  method: string; // enum payment_method: 'cash' | 'card' | 'deposit_online' | 'wallet'
+  paidAt?: Date;
 }
 
 export interface BlockedSlotInput {
@@ -91,12 +106,20 @@ export class AgendaService {
       const { rows } = await client.query(
         `SELECT a.id, a.staff_id, u.full_name AS staff_name, a.starts_at, a.ends_at, a.status,
                 a.confirmation_code, a.customer_note, a.price_total,
-                cu.id AS customer_id, cuu.full_name AS customer_name, cuu.phone AS customer_phone
+                cu.id AS customer_id, cuu.full_name AS customer_name, cuu.phone AS customer_phone,
+                pay.status AS payment_status, pay.method AS payment_method, pay.paid_at AS payment_paid_at
          FROM appointments a
          JOIN staff_members sm ON sm.id = a.staff_id
          JOIN users u ON u.id = sm.user_id
          JOIN customers cu ON cu.id = a.customer_id
          JOIN users cuu ON cuu.id = cu.user_id
+         LEFT JOIN LATERAL (
+           SELECT p.status, p.method, p.paid_at
+           FROM payments p
+           WHERE p.appointment_id = a.id
+           ORDER BY (p.status = 'paid') DESC, p.created_at DESC
+           LIMIT 1
+         ) pay ON true
          WHERE a.tenant_id = $1 AND a.branch_id = $2 AND a.starts_at::date = $3::date
            ${staffFilter}
          ORDER BY a.staff_id, a.starts_at`,
@@ -138,6 +161,37 @@ export class AgendaService {
         return rows[0];
       } catch (err: any) {
         if (err.code === PG_RAISE_EXCEPTION) throw new InvalidStatusTransitionError(err.message);
+        throw err;
+      }
+    });
+  }
+
+  /**
+   * Registro manual de pago (MVP: QR de billetera propio de la barbería, efectivo, etc. —
+   * sin integración con ninguna pasarela de cobro). Mismo criterio "solo mis citas" que el
+   * resto de acciones de agenda para el rol `barber`. Inserta una fila nueva en vez de
+   * actualizar una existente: una cita puede tener más de un pago (seña + saldo), y
+   * `getAgenda` ya prioriza el pago 'paid' más reciente al armar la vista de la agenda.
+   */
+  async recordPayment(input: RecordPaymentInput, callerRole: CallerRole, callerStaffId?: string) {
+    return withTenantContext(this.pool, input.tenantId, async (client) => {
+      const { rows: apptRows } = await client.query(`SELECT staff_id FROM appointments WHERE id = $1`, [input.appointmentId]);
+      if (apptRows.length === 0) throw new TenantMismatchError("Esa cita no existe o no es de tu barbería.");
+
+      if (callerRole === "barber" && apptRows[0].staff_id !== callerStaffId) {
+        throw new OwnAppointmentsOnlyError();
+      }
+
+      try {
+        const { rows } = await client.query(
+          `INSERT INTO payments (tenant_id, appointment_id, amount, method, status, provider, paid_at)
+           VALUES ($1, $2, $3, $4, 'paid', 'manual', COALESCE($5, now()))
+           RETURNING id, amount, method, status, paid_at`,
+          [input.tenantId, input.appointmentId, input.amount, input.method, input.paidAt ?? null]
+        );
+        return rows[0];
+      } catch (err: any) {
+        if (err.code === "22P02" || err.code === "23514") throw new InvalidPaymentError();
         throw err;
       }
     });

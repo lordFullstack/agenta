@@ -305,6 +305,20 @@ export function IconNavigation({ className }: IconProps) {
   );
 }
 
+export function IconWallet({ className }: IconProps) {
+  return (
+    <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">
+      <path
+        d="M4 7.5A2.5 2.5 0 0 1 6.5 5h11A2.5 2.5 0 0 1 20 7.5v9a2.5 2.5 0 0 1-2.5 2.5h-11A2.5 2.5 0 0 1 4 16.5v-9Z"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinejoin="round"
+      />
+      <path d="M14 12.3h4.5v3h-4.5a1.5 1.5 0 0 1 0-3Z" stroke="currentColor" strokeWidth="1.8" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
 export function IconInstagram({ className }: IconProps) {
   return (
     <svg viewBox="0 0 24 24" fill={base} className={className} aria-hidden="true">

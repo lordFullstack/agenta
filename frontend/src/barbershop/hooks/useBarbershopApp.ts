@@ -15,6 +15,9 @@ export interface AppointmentRow {
   customer_name: string;
   customer_phone: string;
   price_total: string;
+  payment_status: string | null;
+  payment_method: string | null;
+  payment_paid_at: string | null;
 }
 
 export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
@@ -95,6 +98,21 @@ export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
         await loadAgenda(date);
       } catch (err) {
         setActionError(err instanceof ApiError ? err.message : "No pudimos actualizar la cita.");
+      }
+    },
+    [api, loadAgenda]
+  );
+
+  const recordPayment = useCallback(
+    async (appointmentId: string, input: { amount: number; method: string; paidAt?: string }, date: string) => {
+      setActionError(undefined);
+      try {
+        await api.recordPayment(appointmentId, { amount: input.amount, method: input.method, paid_at: input.paidAt });
+        await loadAgenda(date);
+        return true;
+      } catch (err) {
+        setActionError(err instanceof ApiError ? err.message : "No pudimos registrar el pago.");
+        return false;
       }
     },
     [api, loadAgenda]
@@ -372,6 +390,7 @@ export function useBarbershopApp(api: BarbershopApiClient, branchId: string) {
     actionError,
     loadAgenda,
     updateStatus,
+    recordPayment,
     createWalkIn,
     // Servicios
     services,
